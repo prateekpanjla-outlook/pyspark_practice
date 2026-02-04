@@ -51,14 +51,31 @@ WHERE dm.to_date = '9999-01-01';
 ```
 
 ```python
-# PySpark
-managers = department_manager_df.filter(col("to_date") == '9999-01-01')
-managers.join(employee_df, department_manager_df.employee_id == employee_df.id) \
-        .join(department_df, "department_id") \
-        .select(department_df.dept_name, employee_df.first_name, employee_df.last_name) \
-        .show()
-```
+employee_df = spark.read.jdbc(url="jdbc:postgresql://localhost:5432/employees",table="employees.employee",
+                         properties={"user": "vagrant", "password": "vagrant","driver": "org.postgresql.Driver"})
 
+
+department_df = spark.read.jdbc(url="jdbc:postgresql://localhost:5432/employees",table="employees.department",
+                         properties={"user": "vagrant", "password": "vagrant","driver": "org.postgresql.Driver"})
+
+
+department_manager_df = spark.read.jdbc(url="jdbc:postgresql://localhost:5432/employees",table="employees.department_manager",
+                         properties={"user": "vagrant", "password": "vagrant","driver": "org.postgresql.Driver"})
+
+
+
+
+# Create aliases for the tables
+dm = department_manager_df.alias("dm")
+e = employee_df.alias("e")
+d = department_df.alias("d")
+
+dm.filter(col("to_date") == '9999-01-01') \
+  .join(e, dm.employee_id == e.id) \
+  .join(d, dm.department_id == d.id) \
+  .select(d.dept_name, e.first_name, e.last_name) \
+  .show()
+  
 **3. List employees who are currently "Senior Engineers".**
 *Concept: Multi-table Join*
 
