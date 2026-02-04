@@ -25,19 +25,39 @@ WHERE d.dept_name = 'Research';
 ```python
 # PySpark
 # Get IDs for Development
-dev_ids = employee_df.join(department_employee_df, employee_df.id == department_employee_df.employee_id) \
-                     .join(department_df, department_employee_df.department_id == department_df.id) \
-                     .filter(col("dept_name") == "Development") \
-                     .select("id").distinct()
+employee_df = spark.read.jdbc(url="jdbc:postgresql://localhost:5432/employees",table="employees.employee",
+                         properties={"user": "vagrant", "password": "vagrant","driver": "org.postgresql.Driver"})
 
-# Get IDs for Research
-res_ids = employee_df.join(department_employee_df, employee_df.id == department_employee_df.employee_id) \
-                     .join(department_df, department_employee_df.department_id == department_df.id) \
-                     .filter(col("dept_name") == "Research") \
-                     .select("id").distinct()
+
+department_df = spark.read.jdbc(url="jdbc:postgresql://localhost:5432/employees",table="employees.department",
+                         properties={"user": "vagrant", "password": "vagrant","driver": "org.postgresql.Driver"})
+
+
+department_employee_df = spark.read.jdbc(url="jdbc:postgresql://localhost:5432/employees",table="employees.department_employee",
+                         properties={"user": "vagrant", "password": "vagrant","driver": "org.postgresql.Driver"})
+
+# PySpark
+# Get IDs for Development
+from pyspark.sql.functions import col
+
+# 1. Create aliases for clarity
+e = employee_df.alias("e")
+d = department_df.alias("d")
+de = department_employee_df.alias("de")
+
+# 2. Use the aliases in the join and select conditions
+dev_ids = e.join(de, e["id"] == de["employee_id"]) \
+             .join(d, de["department_id"] == d["id"]) \
+             .filter(col("d.dept_name") == "Development") \
+             .select(col("e.id")).distinct() # Explicitly select e.id
+
+res_ids = e.join(de, e["id"] == de["employee_id"]) \
+             .join(d, de["department_id"] == d["id"]) \
+             .filter(col("d.dept_name") == "Research") \
+             .select(col("e.id")).distinct()
 
 # Intersect
-dev_ids.intersect(res_ids).join(employee_df, "id").show()
+dev_ids.intersect(res_ids).show()
 ```
 
 **52. List employees who have worked in 'Development' but never in 'Research'.**
