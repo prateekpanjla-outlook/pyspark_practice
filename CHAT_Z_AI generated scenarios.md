@@ -1,19 +1,13 @@
 
 
-Here is the complete consolidated list of **50 Sample Questions and Solutions** for the MySQL Employees Sample Database.
+Here is the complete, regenerated list of **50 problems and solutions**, fully updated to match your specific schema structure (e.g., `employee` table uses `id`, `salary` table uses `amount`, etc.).
 
-These cover:
-1.  **Joins & Filtering**
-2.  **Window Functions (Ranking, Lead, Lag, Ntile)**
-3.  **Sliding Windows (Moving Averages, Running Totals, Row Frames)**
-4.  **Pivots & Aggregations**
-5.  **Self Joins & Complex Logic**
-6.  **Recursive / Time Series Logic**
-
-**PySpark Setup**
+**Prerequisites (PySpark)**
 ```python
 from pyspark.sql import Window
 from pyspark.sql.functions import *
+# Assuming DataFrames are named: employee_df, department_df, department_employee_df, 
+# department_manager_df, salary_df, title_df
 ```
 
 ---
@@ -25,23 +19,23 @@ from pyspark.sql.functions import *
 
 ```sql
 -- SQL
-SELECT e.emp_no, e.first_name, e.last_name, d.dept_name
-FROM employees e
-JOIN dept_emp de ON e.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-JOIN departments d ON de.dept_no = d.dept_no;
+SELECT e.id, e.first_name, e.last_name, d.dept_name
+FROM employee e
+JOIN department_employee de ON e.id = de.employee_id AND de.to_date = '9999-01-01'
+JOIN department d ON de.department_id = d.id;
 ```
 
 ```python
 # PySpark
-cond = [employees_df.emp_no == dept_emp_df.emp_no, 
-        dept_emp_df.to_date == '9999-01-01', 
-        dept_emp_df.dept_no == departments_df.dept_no]
+cond = [employee_df.id == department_employee_df.employee_id, 
+        department_employee_df.to_date == '9999-01-01', 
+        department_employee_df.department_id == department_df.id]
 
-employees_df.join(dept_emp_df, "emp_no") \
-            .join(departments_df, cond) \
-            .select(employees_df.emp_no, employees_df.first_name, 
-                    employees_df.last_name, departments_df.dept_name) \
-            .show()
+employee_df.join(department_employee_df, "id") \
+           .join(department_df, cond) \
+           .select(employee_df.id, employee_df.first_name, 
+                   employee_df.last_name, department_df.dept_name) \
+           .show()
 ```
 
 **2. Find the current head of each department.**
@@ -50,18 +44,18 @@ employees_df.join(dept_emp_df, "emp_no") \
 ```sql
 -- SQL
 SELECT d.dept_name, e.first_name, e.last_name
-FROM dept_manager dm
-JOIN employees e ON dm.emp_no = e.emp_no
-JOIN departments d ON dm.dept_no = d.dept_no
+FROM department_manager dm
+JOIN employee e ON dm.employee_id = e.id
+JOIN department d ON dm.department_id = d.id
 WHERE dm.to_date = '9999-01-01';
 ```
 
 ```python
 # PySpark
-managers = dept_manager_df.filter(col("to_date") == '9999-01-01')
-managers.join(employees_df, "emp_no") \
-        .join(departments_df, "dept_no") \
-        .select(departments_df.dept_name, employees_df.first_name, employees_df.last_name) \
+managers = department_manager_df.filter(col("to_date") == '9999-01-01')
+managers.join(employee_df, department_manager_df.employee_id == employee_df.id) \
+        .join(department_df, "department_id") \
+        .select(department_df.dept_name, employee_df.first_name, employee_df.last_name) \
         .show()
 ```
 
@@ -70,18 +64,18 @@ managers.join(employees_df, "emp_no") \
 
 ```sql
 -- SQL
-SELECT e.emp_no, e.first_name
-FROM employees e
-JOIN titles t ON e.emp_no = t.emp_no
+SELECT e.id, e.first_name
+FROM employee e
+JOIN title t ON e.id = t.employee_id
 WHERE t.title = 'Senior Engineer' AND t.to_date = '9999-01-01';
 ```
 
 ```python
 # PySpark
-employees_df.join(titles_df, "emp_no") \
-            .filter((col("title") == "Senior Engineer") & (col("to_date") == '9999-01-01')) \
-            .select("emp_no", "first_name") \
-            .show()
+employee_df.join(title_df, employee_df.id == title_df.employee_id) \
+           .filter((col("title") == "Senior Engineer") & (col("to_date") == '9999-01-01')) \
+           .select(employee_df.id, employee_df.first_name) \
+           .show()
 ```
 
 **4. Calculate the average salary per department.**
@@ -89,22 +83,22 @@ employees_df.join(titles_df, "emp_no") \
 
 ```sql
 -- SQL
-SELECT d.dept_name, AVG(s.salary) as avg_salary
-FROM salaries s
-JOIN dept_emp de ON s.emp_no = de.emp_no AND de.to_date = '9999-01-01' AND s.to_date = '9999-01-01'
-JOIN departments d ON de.dept_no = d.dept_no
+SELECT d.dept_name, AVG(s.amount) as avg_salary
+FROM salary s
+JOIN department_employee de ON s.employee_id = de.employee_id AND de.to_date = '9999-01-01' AND s.to_date = '9999-01-01'
+JOIN department d ON de.department_id = d.id
 GROUP BY d.dept_name;
 ```
 
 ```python
 # PySpark
-cond = [salaries_df.emp_no == dept_emp_df.emp_no, 
-        salaries_df.to_date == '9999-01-01', 
-        dept_emp_df.to_date == '9999-01-01',
-        dept_emp_df.dept_no == departments_df.dept_no]
+cond = [salary_df.employee_id == department_employee_df.employee_id, 
+        salary_df.to_date == '9999-01-01', 
+        department_employee_df.to_date == '9999-01-01',
+        department_employee_df.department_id == department_df.id]
 
-joined = salaries_df.join(dept_emp_df, cond).join(departments_df, "dept_no")
-joined.groupBy("dept_name").avg("salary").show()
+joined = salary_df.join(department_employee_df, cond).join(department_df, "department_id")
+joined.groupBy("dept_name").avg("amount").show()
 ```
 
 **5. Find departments with more than 10,000 current employees.**
@@ -113,8 +107,8 @@ joined.groupBy("dept_name").avg("salary").show()
 ```sql
 -- SQL
 SELECT d.dept_name, COUNT(*) as cnt
-FROM dept_emp de
-JOIN departments d ON de.dept_no = d.dept_no
+FROM department_employee de
+JOIN department d ON de.department_id = d.id
 WHERE de.to_date = '9999-01-01'
 GROUP BY d.dept_name
 HAVING COUNT(*) > 10000;
@@ -122,12 +116,12 @@ HAVING COUNT(*) > 10000;
 
 ```python
 # PySpark
-dept_emp_df.filter(col("to_date") == '9999-01-01') \
-           .join(departments_df, "dept_no") \
-           .groupBy("dept_name") \
-           .agg(count("*").alias("cnt")) \
-           .filter(col("cnt") > 10000) \
-           .show()
+department_employee_df.filter(col("to_date") == '9999-01-01') \
+                      .join(department_df, department_employee_df.department_id == department_df.id) \
+                      .groupBy("dept_name") \
+                      .agg(count("*").alias("cnt")) \
+                      .filter(col("cnt") > 10000) \
+                      .show()
 ```
 
 **6. Find employees hired in the year 1995.**
@@ -135,12 +129,12 @@ dept_emp_df.filter(col("to_date") == '9999-01-01') \
 
 ```sql
 -- SQL
-SELECT * FROM employees WHERE YEAR(hire_date) = 1995;
+SELECT * FROM employee WHERE YEAR(hire_date) = 1995;
 ```
 
 ```python
 # PySpark
-employees_df.filter(year("hire_date") == 1995).show()
+employee_df.filter(year("hire_date") == 1995).show()
 ```
 
 **7. Count how many distinct job titles exist.**
@@ -148,12 +142,12 @@ employees_df.filter(year("hire_date") == 1995).show()
 
 ```sql
 -- SQL
-SELECT COUNT(DISTINCT title) FROM titles;
+SELECT COUNT(DISTINCT title) FROM title;
 ```
 
 ```python
 # PySpark
-titles_df.select(countDistinct("title")).show()
+title_df.select(countDistinct("title")).show()
 ```
 
 **8. List employees who have never held a manager title.**
@@ -162,31 +156,31 @@ titles_df.select(countDistinct("title")).show()
 ```sql
 -- SQL
 SELECT e.first_name, e.last_name
-FROM employees e
+FROM employee e
 WHERE NOT EXISTS (
-    SELECT 1 FROM titles t WHERE t.emp_no = e.emp_no AND t.title LIKE '%Manager%'
+    SELECT 1 FROM title t WHERE t.employee_id = e.id AND t.title LIKE '%Manager%'
 );
 ```
 
 ```python
 # PySpark
-mgrs = titles_df.filter(col("title").contains("Manager")).select("emp_no").distinct()
-employees_df.join(mgrs, "emp_no", "left_anti") \
-            .select("first_name", "last_name") \
-            .show()
+mgrs = title_df.filter(col("title").contains("Manager")).select("employee_id").distinct()
+employee_df.join(mgrs, employee_df.id == mgrs.employee_id, "left_anti") \
+           .select("first_name", "last_name") \
+           .show()
 ```
 
-**9. Show the salary history for employee 10001.**
+**9. Show the salary history for employee ID 10001.**
 *Concept: Simple Filter*
 
 ```sql
 -- SQL
-SELECT * FROM salaries WHERE emp_no = 10001 ORDER BY from_date;
+SELECT * FROM salary WHERE employee_id = 10001 ORDER BY from_date;
 ```
 
 ```python
 # PySpark
-salaries_df.filter(col("emp_no") == 10001).orderBy("from_date").show()
+salary_df.filter(col("employee_id") == 10001).orderBy("from_date").show()
 ```
 
 **10. Find the maximum salary ever paid.**
@@ -194,12 +188,12 @@ salaries_df.filter(col("emp_no") == 10001).orderBy("from_date").show()
 
 ```sql
 -- SQL
-SELECT MAX(salary) FROM salaries;
+SELECT MAX(amount) FROM salary;
 ```
 
 ```python
 # PySpark
-salaries_df.agg(max("salary")).show()
+salary_df.agg(max("amount")).show()
 ```
 
 ---
@@ -212,12 +206,12 @@ salaries_df.agg(max("salary")).show()
 ```sql
 -- SQL
 WITH Ranked AS (
-    SELECT e.emp_no, d.dept_name, s.salary,
-           ROW_NUMBER() OVER (PARTITION BY d.dept_name ORDER BY s.salary DESC) as rn
-    FROM salaries s
-    JOIN dept_emp de ON s.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-    JOIN departments d ON de.dept_no = d.dept_no
-    JOIN employees e ON s.emp_no = e.emp_no
+    SELECT e.id, d.dept_name, s.amount,
+           ROW_NUMBER() OVER (PARTITION BY d.dept_name ORDER BY s.amount DESC) as rn
+    FROM salary s
+    JOIN department_employee de ON s.employee_id = de.employee_id AND de.to_date = '9999-01-01'
+    JOIN department d ON de.department_id = d.id
+    JOIN employee e ON s.employee_id = e.id
     WHERE s.to_date = '9999-01-01'
 )
 SELECT * FROM Ranked WHERE rn <= 3;
@@ -225,14 +219,16 @@ SELECT * FROM Ranked WHERE rn <= 3;
 
 ```python
 # PySpark
-cond = [salaries_df.emp_no == dept_emp_df.emp_no, 
-        salaries_df.to_date == '9999-01-01', 
-        dept_emp_df.to_date == '9999-01-01',
-        dept_emp_df.dept_no == departments_df.dept_no]
+cond = [salary_df.employee_id == department_employee_df.employee_id, 
+        salary_df.to_date == '9999-01-01', 
+        department_employee_df.to_date == '9999-01-01',
+        department_employee_df.department_id == department_df.id]
 
-joined = salaries_df.join(dept_emp_df, "emp_no").join(departments_df, cond).join(employees_df, "emp_no")
-window_spec = Window.partitionBy("dept_name").orderBy(col("salary").desc())
+joined = salary_df.join(department_employee_df, cond) \
+                  .join(department_df, "department_id") \
+                  .join(employee_df, salary_df.employee_id == employee_df.id)
 
+window_spec = Window.partitionBy("dept_name").orderBy(col("amount").desc())
 joined.withColumn("rn", row_number().over(window_spec)) \
       .filter(col("rn") <= 3) \
       .show()
@@ -243,20 +239,21 @@ joined.withColumn("rn", row_number().over(window_spec)) \
 
 ```sql
 -- SQL
-SELECT t.title, e.first_name, s.salary,
-       DENSE_RANK() OVER (PARTITION BY t.title ORDER BY s.salary DESC) as rnk
-FROM employees e
-JOIN salaries s ON e.emp_no = s.emp_no AND s.to_date = '9999-01-01'
-JOIN titles t ON e.emp_no = t.emp_no AND t.to_date = '9999-01-01';
+SELECT t.title, e.first_name, s.amount,
+       DENSE_RANK() OVER (PARTITION BY t.title ORDER BY s.amount DESC) as rnk
+FROM employee e
+JOIN salary s ON e.id = s.employee_id AND s.to_date = '9999-01-01'
+JOIN title t ON e.id = t.employee_id AND t.to_date = '9999-01-01';
 ```
 
 ```python
 # PySpark
-cond = [employees_df.emp_no == salaries_df.emp_no, salaries_df.to_date == '9999-01-01',
-        employees_df.emp_no == titles_df.emp_no, titles_df.to_date == '9999-01-01']
-joined = employees_df.join(salaries_df, "emp_no").join(titles_df, "emp_no")
+cond = [employee_df.id == salary_df.employee_id, salary_df.to_date == '9999-01-01',
+        employee_df.id == title_df.employee_id, title_df.to_date == '9999-01-01']
+joined = employee_df.join(salary_df, employee_df.id == salary_df.employee_id) \
+                   .join(title_df, employee_df.id == title_df.employee_id)
 
-window_spec = Window.partitionBy("title").orderBy(col("salary").desc())
+window_spec = Window.partitionBy("title").orderBy(col("amount").desc())
 joined.withColumn("rnk", dense_rank().over(window_spec)).show()
 ```
 
@@ -265,18 +262,18 @@ joined.withColumn("rnk", dense_rank().over(window_spec)).show()
 
 ```sql
 -- SQL
-SELECT emp_no, salary,
-       LAG(salary) OVER (PARTITION BY emp_no ORDER BY from_date) as prev_salary,
-       salary - LAG(salary) OVER (PARTITION BY emp_no ORDER BY from_date) as raise_amount
-FROM salaries;
+SELECT employee_id, amount,
+       LAG(amount) OVER (PARTITION BY employee_id ORDER BY from_date) as prev_amount,
+       amount - LAG(amount) OVER (PARTITION BY employee_id ORDER BY from_date) as raise_amount
+FROM salary;
 ```
 
 ```python
 # PySpark
-window_spec = Window.partitionBy("emp_no").orderBy("from_date")
-salaries_df.withColumn("prev_salary", lag("salary").over(window_spec)) \
-           .withColumn("raise", col("salary") - col("prev_salary")) \
-           .show()
+window_spec = Window.partitionBy("employee_id").orderBy("from_date")
+salary_df.withColumn("prev_amount", lag("amount").over(window_spec)) \
+        .withColumn("raise", col("amount") - col("prev_amount")) \
+        .show()
 ```
 
 **14. Find the date of the next job title change.**
@@ -284,15 +281,15 @@ salaries_df.withColumn("prev_salary", lag("salary").over(window_spec)) \
 
 ```sql
 -- SQL
-SELECT emp_no, title, from_date,
-       LEAD(from_date) OVER (PARTITION BY emp_no ORDER BY from_date) as next_change_date
-FROM titles;
+SELECT employee_id, title, from_date,
+       LEAD(from_date) OVER (PARTITION BY employee_id ORDER BY from_date) as next_change_date
+FROM title;
 ```
 
 ```python
 # PySpark
-window_spec = Window.partitionBy("emp_no").orderBy("from_date")
-titles_df.withColumn("next_change_date", lead("from_date").over(window_spec)).show()
+window_spec = Window.partitionBy("employee_id").orderBy("from_date")
+title_df.withColumn("next_change_date", lead("from_date").over(window_spec)).show()
 ```
 
 **15. Calculate salary quartiles (NTILE).**
@@ -300,15 +297,15 @@ titles_df.withColumn("next_change_date", lead("from_date").over(window_spec)).sh
 
 ```sql
 -- SQL
-SELECT emp_no, salary,
-       NTILE(4) OVER (ORDER BY salary DESC) as quartile
-FROM salaries WHERE to_date = '9999-01-01';
+SELECT employee_id, amount,
+       NTILE(4) OVER (ORDER BY amount DESC) as quartile
+FROM salary WHERE to_date = '9999-01-01';
 ```
 
 ```python
 # PySpark
-current_salaries = salaries_df.filter(col("to_date") == '9999-01-01')
-current_salaries.withColumn("quartile", ntile(4).over(Window.orderBy(col("salary").desc()))).show()
+current_salary = salary_df.filter(col("to_date") == '9999-01-01')
+current_salary.withColumn("quartile", ntile(4).over(Window.orderBy(col("amount").desc()))).show()
 ```
 
 **16. Find the percentage rank of a salary within the company.**
@@ -316,15 +313,15 @@ current_salaries.withColumn("quartile", ntile(4).over(Window.orderBy(col("salary
 
 ```sql
 -- SQL
-SELECT emp_no, salary,
-       PERCENT_RANK() OVER (ORDER BY salary ASC) as pct_rank
-FROM salaries WHERE to_date = '9999-01-01';
+SELECT employee_id, amount,
+       PERCENT_RANK() OVER (ORDER BY amount ASC) as pct_rank
+FROM salary WHERE to_date = '9999-01-01';
 ```
 
 ```python
 # PySpark
-current_salaries = salaries_df.filter(col("to_date") == '9999-01-01')
-current_salaries.withColumn("pct_rank", percent_rank().over(Window.orderBy("salary"))).show()
+current_salary = salary_df.filter(col("to_date") == '9999-01-01')
+current_salary.withColumn("pct_rank", percent_rank().over(Window.orderBy("amount"))).show()
 ```
 
 **17. Count the number of employees hired in the same year as each employee.**
@@ -332,15 +329,15 @@ current_salaries.withColumn("pct_rank", percent_rank().over(Window.orderBy("sala
 
 ```sql
 -- SQL
-SELECT emp_no, hire_date,
+SELECT id, hire_date,
        COUNT(*) OVER (PARTITION BY YEAR(hire_date)) as peers_hired_same_year
-FROM employees;
+FROM employee;
 ```
 
 ```python
 # PySpark
 window_spec = Window.partitionBy(year("hire_date"))
-employees_df.withColumn("peers", count("*").over(window_spec)).show()
+employee_df.withColumn("peers", count("*").over(window_spec)).show()
 ```
 
 **18. Find the first hire date for every department.**
@@ -349,18 +346,20 @@ employees_df.withColumn("peers", count("*").over(window_spec)).show()
 ```sql
 -- SQL
 SELECT DISTINCT d.dept_name,
-       FIRST_VALUE(e.hire_date) OVER (PARTITION BY d.dept_no ORDER BY e.hire_date) as first_hire
-FROM employees e
-JOIN dept_emp de ON e.emp_no = de.emp_no
-JOIN departments d ON de.dept_no = d.dept_no;
+       FIRST_VALUE(e.hire_date) OVER (PARTITION BY d.id ORDER BY e.hire_date) as first_hire
+FROM employee e
+JOIN department_employee de ON e.id = de.employee_id
+JOIN department d ON de.department_id = d.id;
 ```
 
 ```python
 # PySpark
-cond = [employees_df.emp_no == dept_emp_df.emp_no, dept_emp_df.dept_no == departments_df.dept_no]
-joined = employees_df.join(dept_emp_df, "emp_no").join(departments_df, cond)
+cond = [employee_df.id == department_employee_df.employee_id, 
+        department_employee_df.department_id == department_df.id]
+joined = employee_df.join(department_employee_df, employee_df.id == department_employee_df.employee_id) \
+                   .join(department_df, department_employee_df.department_id == department_df.id)
 
-window_spec = Window.partitionBy("dept_no").orderBy("hire_date")
+window_spec = Window.partitionBy("department_id").orderBy("hire_date")
 joined.withColumn("first_hire", first("hire_date").over(window_spec)) \
       .select("dept_name", "first_hire") \
       .distinct() \
@@ -373,20 +372,20 @@ joined.withColumn("first_hire", first("hire_date").over(window_spec)) \
 ```sql
 -- SQL
 WITH CountTitles AS (
-    SELECT emp_no, title, COUNT(*) OVER (PARTITION BY emp_no, title) as cnt
-    FROM titles
+    SELECT employee_id, title, COUNT(*) OVER (PARTITION BY employee_id, title) as cnt
+    FROM title
 )
-SELECT DISTINCT emp_no FROM CountTitles WHERE cnt > 1;
+SELECT DISTINCT employee_id FROM CountTitles WHERE cnt > 1;
 ```
 
 ```python
 # PySpark
-window_spec = Window.partitionBy("emp_no", "title")
-titles_df.withColumn("cnt", count("*").over(window_spec)) \
-        .filter(col("cnt") > 1) \
-        .select("emp_no") \
-        .distinct() \
-        .show()
+window_spec = Window.partitionBy("employee_id", "title")
+title_df.withColumn("cnt", count("*").over(window_spec)) \
+       .filter(col("cnt") > 1) \
+       .select("employee_id") \
+       .distinct() \
+       .show()
 ```
 
 **20. Median salary approximation.**
@@ -395,20 +394,19 @@ titles_df.withColumn("cnt", count("*").over(window_spec)) \
 ```sql
 -- SQL
 WITH Ordered AS (
-    SELECT salary,
-           ROW_NUMBER() OVER (ORDER BY salary) as rn,
+    SELECT amount,
+           ROW_NUMBER() OVER (ORDER BY amount) as rn,
            COUNT(*) OVER () as total
-    FROM salaries WHERE to_date = '9999-01-01'
+    FROM salary WHERE to_date = '9999-01-01'
 )
-SELECT AVG(salary) FROM Ordered WHERE rn IN (FLOOR((total+1)/2), CEIL((total+1)/2));
+SELECT AVG(amount) FROM Ordered WHERE rn IN (FLOOR((total+1)/2), CEIL((total+1)/2));
 ```
 
 ```python
 # PySpark
-# Spark has a built-in percentile_approx function in aggregations
-salaries_df.filter(col("to_date") == '9999-01-01') \
-           .agg(expr("percentile_approx(salary, 0.5)").alias("median")) \
-           .show()
+salary_df.filter(col("to_date") == '9999-01-01') \
+        .agg(expr("percentile_approx(amount, 0.5)").alias("median")) \
+        .show()
 ```
 
 ---
@@ -422,24 +420,24 @@ salaries_df.filter(col("to_date") == '9999-01-01') \
 -- SQL
 SELECT 
     from_date,
-    salary,
-    AVG(salary) OVER (
+    amount,
+    AVG(amount) OVER (
         ORDER BY from_date 
         ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
     ) as moving_avg
-FROM salaries
-WHERE emp_no = 10001;
+FROM salary
+WHERE employee_id = 10001;
 ```
 
 ```python
 # PySpark
-window_spec = Window.partitionBy("emp_no") \
+window_spec = Window.partitionBy("employee_id") \
                    .orderBy("from_date") \
                    .rowsBetween(-2, 0)
 
-salaries_df.filter(col("emp_no") == 10001) \
-           .withColumn("moving_avg", avg("salary").over(window_spec)) \
-           .show()
+salary_df.filter(col("employee_id") == 10001) \
+        .withColumn("moving_avg", avg("amount").over(window_spec)) \
+        .show()
 ```
 
 **22. Running Total of salaries paid globally by date.**
@@ -449,18 +447,18 @@ salaries_df.filter(col("emp_no") == 10001) \
 -- SQL
 SELECT 
     from_date,
-    SUM(salary) OVER (
+    SUM(amount) OVER (
         ORDER BY from_date 
         RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
     ) as running_total
-FROM salaries
+FROM salary
 GROUP BY from_date
 ORDER BY from_date;
 ```
 
 ```python
 # PySpark
-daily_cost = salaries_df.groupBy("from_date").sum("salary").withColumnRenamed("sum(salary)", "daily_cost")
+daily_cost = salary_df.groupBy("from_date").sum("amount").withColumnRenamed("sum(amount)", "daily_cost")
 window_spec = Window.orderBy("from_date").rangeBetween(Window.unboundedPreceding, Window.currentRow)
 
 daily_cost.withColumn("running_total", sum("daily_cost").over(window_spec)).show()
@@ -473,22 +471,21 @@ daily_cost.withColumn("running_total", sum("daily_cost").over(window_spec)).show
 -- SQL
 SELECT 
     from_date,
-    salary,
-    SUM(salary) OVER (
+    amount,
+    SUM(amount) OVER (
         ORDER BY from_date 
         ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
     ) as sum_neighbors
-FROM salaries
-WHERE emp_no = 10001;
+FROM salary
+WHERE employee_id = 10001;
 ```
 
 ```python
 # PySpark
-window_spec = Window.partitionBy("emp_no").orderBy("from_date").rowsBetween(-1, 1)
-
-salaries_df.filter(col("emp_no") == 10001) \
-           .withColumn("sum_neighbors", sum("salary").over(window_spec)) \
-           .show()
+window_spec = Window.partitionBy("employee_id").orderBy("from_date").rowsBetween(-1, 1)
+salary_df.filter(col("employee_id") == 10001) \
+        .withColumn("sum_neighbors", sum("amount").over(window_spec)) \
+        .show()
 ```
 
 **24. Department Average Salary excluding the current row.**
@@ -497,28 +494,27 @@ salaries_df.filter(col("emp_no") == 10001) \
 ```sql
 -- SQL
 SELECT 
-    e.emp_no, d.dept_name, s.salary,
-    AVG(s.salary) OVER (
-        PARTITION BY d.dept_no 
-        ORDER BY s.salary 
+    e.id, d.dept_name, s.amount,
+    AVG(s.amount) OVER (
+        PARTITION BY d.id 
+        ORDER BY s.amount 
         ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-    ) as avg_lower_salaries
-FROM salaries s
-JOIN dept_emp de ON s.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-JOIN departments d ON de.dept_no = d.dept_no
+    ) as avg_lower_amounts
+FROM salary s
+JOIN department_employee de ON s.employee_id = de.employee_id AND de.to_date = '9999-01-01'
+JOIN department d ON de.department_id = d.id
 WHERE s.to_date = '9999-01-01';
 ```
 
 ```python
 # PySpark
-# Note: This is a specific "frame" where we look at everything before the current row
-cond = [salaries_df.emp_no == dept_emp_df.emp_no, salaries_df.to_date == '9999-01-01',
-        dept_emp_df.dept_no == departments_df.dept_no, dept_emp_df.to_date == '9999-01-01']
+cond = [salary_df.employee_id == department_employee_df.employee_id, salary_df.to_date == '9999-01-01',
+        department_employee_df.department_id == department_df.id, department_employee_df.to_date == '9999-01-01']
 
-joined = salaries_df.join(dept_emp_df, "emp_no").join(departments_df, cond)
-window_spec = Window.partitionBy("dept_no").orderBy("salary").rowsBetween(Window.unboundedPreceding, -1)
+joined = salary_df.join(department_employee_df, cond).join(department_df, "department_id")
+window_spec = Window.partitionBy("department_id").orderBy("amount").rowsBetween(Window.unboundedPreceding, -1)
 
-joined.withColumn("avg_lower", avg("salary").over(window_spec)).show()
+joined.withColumn("avg_lower", avg("amount").over(window_spec)).show()
 ```
 
 **25. Rolling 12-month total hires.**
@@ -532,18 +528,13 @@ SELECT
         ORDER BY hire_date
         RANGE BETWEEN INTERVAL 12 MONTH PRECEDING AND CURRENT ROW
     ) as rolling_hires
-FROM employees;
+FROM employee;
 ```
 
 ```python
 # PySpark
-# Spark doesn't support SQL standard RANGE BETWEEN INTERVAL for dates in the DataFrame Window API as directly as SQL.
-# We usually convert to timestamp, but here is the closest logic:
-# Calculate month, and group by month for aggregation is usually better for monthly rollups.
-# Alternative: Using rangeBetween with timestamps.
-
-# Assuming timestamps for rangeBetween
-emp_ts = employees_df.withColumn("ts", to_timestamp(col("hire_date")))
+# Using rangeBetween with timestamps
+emp_ts = employee_df.withColumn("ts", to_timestamp(col("hire_date")))
 window_spec = Window.orderBy("ts").rangeBetween(-31536000, 0) # Approx 1 year in seconds
 
 emp_ts.withColumn("rolling_hires", count("*").over(window_spec)).show()
@@ -560,9 +551,9 @@ emp_ts.withColumn("rolling_hires", count("*").over(window_spec)).show()
 -- SQL
 SELECT * FROM (
     SELECT d.dept_name, e.gender
-    FROM employees e
-    JOIN dept_emp de ON e.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-    JOIN departments d ON de.dept_no = d.dept_no
+    FROM employee e
+    JOIN department_employee de ON e.id = de.employee_id AND de.to_date = '9999-01-01'
+    JOIN department d ON de.department_id = d.id
 ) 
 PIVOT (
     COUNT(*) FOR gender IN ('M', 'F')
@@ -571,10 +562,11 @@ PIVOT (
 
 ```python
 # PySpark
-cond = [employees_df.emp_no == dept_emp_df.emp_no, dept_emp_df.to_date == '9999-01-01',
-        dept_emp_df.dept_no == departments_df.dept_no]
+cond = [employee_df.id == department_employee_df.employee_id, department_employee_df.to_date == '9999-01-01',
+        department_employee_df.department_id == department_df.id]
 
-joined = employees_df.join(dept_emp_df, "emp_no").join(departments_df, cond)
+joined = employee_df.join(department_employee_df, employee_df.id == department_employee_df.employee_id) \
+                   .join(department_df, department_employee_df.department_id == department_df.id)
 joined.groupBy("dept_name").pivot("gender", ["M", "F"]).count().show()
 ```
 
@@ -584,29 +576,31 @@ joined.groupBy("dept_name").pivot("gender", ["M", "F"]).count().show()
 ```sql
 -- SQL
 SELECT * FROM (
-    SELECT d.dept_name, t.title, s.salary
-    FROM salaries s
-    JOIN titles t ON s.emp_no = t.emp_no AND t.to_date = '9999-01-01'
-    JOIN dept_emp de ON s.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-    JOIN departments d ON de.dept_no = d.dept_no
+    SELECT d.dept_name, t.title, s.amount
+    FROM salary s
+    JOIN title t ON s.employee_id = t.employee_id AND t.to_date = '9999-01-01'
+    JOIN department_employee de ON s.employee_id = de.employee_id AND de.to_date = '9999-01-01'
+    JOIN department d ON de.department_id = d.id
     WHERE s.to_date = '9999-01-01'
 ) 
 PIVOT (
-    AVG(salary) FOR title IN ('Staff', 'Senior Engineer', 'Manager')
+    AVG(amount) FOR title IN ('Staff', 'Senior Engineer', 'Manager')
 );
 ```
 
 ```python
 # PySpark
-cond = [salaries_df.emp_no == titles_df.emp_no, titles_df.to_date == '9999-01-01',
-        salaries_df.emp_no == dept_emp_df.emp_no, dept_emp_df.to_date == '9999-01-01',
-        dept_emp_df.dept_no == departments_df.dept_no,
-        salaries_df.to_date == '9999-01-01']
+cond = [salary_df.employee_id == title_df.employee_id, title_df.to_date == '9999-01-01',
+        salary_df.employee_id == department_employee_df.employee_id, department_employee_df.to_date == '9999-01-01',
+        department_employee_df.department_id == department_df.id,
+        salary_df.to_date == '9999-01-01']
 
-joined = salaries_df.join(titles_df, "emp_no").join(dept_emp_df, "emp_no").join(departments_df, "dept_no")
+joined = salary_df.join(title_df, salary_df.employee_id == title_df.employee_id) \
+                 .join(department_employee_df, salary_df.employee_id == department_employee_df.employee_id) \
+                 .join(department_df, "department_id")
 joined.groupBy("dept_name") \
       .pivot("title", ["Staff", "Senior Engineer", "Manager"]) \
-      .avg("salary") \
+      .avg("amount") \
       .show()
 ```
 
@@ -614,21 +608,20 @@ joined.groupBy("dept_name") \
 *Concept: `collect_list` / `group_concat`*
 
 ```sql
--- SQL (MySQL uses GROUP_CONCAT)
-SELECT d.dept_name, GROUP_CONCAT(e.first_name) as employees
-FROM departments d
-JOIN dept_emp de ON d.dept_no = de.dept_no AND de.to_date = '9999-01-01'
-JOIN employees e ON de.emp_no = e.emp_no
+-- SQL
+SELECT d.dept_name, STRING_AGG(e.first_name, ', ') as employees
+FROM department d
+JOIN department_employee de ON d.id = de.department_id AND de.to_date = '9999-01-01'
+JOIN employee e ON de.employee_id = e.id
 GROUP BY d.dept_name;
 ```
 
 ```python
 # PySpark
-# Spark uses collect_list, then concat_ws to join strings
-cond = [departments_df.dept_no == dept_emp_df.dept_no, dept_emp_df.to_date == '9999-01-01',
-        dept_emp_df.emp_no == employees_df.emp_no]
+cond = [department_df.id == department_employee_df.department_id, department_employee_df.to_date == '9999-01-01',
+        department_employee_df.employee_id == employee_df.id]
 
-joined = departments_df.join(dept_emp_df, cond).join(employees_df, "emp_no")
+joined = department_df.join(department_employee_df, cond).join(employee_df, department_employee_df.employee_id == employee_df.id)
 result = joined.groupBy("dept_name") \
                .agg(concat_ws(", ", collect_list("first_name")).alias("employees"))
 result.show(truncate=False)
@@ -641,22 +634,22 @@ result.show(truncate=False)
 -- SQL
 SELECT 
     CASE 
-        WHEN salary < 50000 THEN 'Low'
-        WHEN salary < 80000 THEN 'Medium'
+        WHEN amount < 50000 THEN 'Low'
+        WHEN amount < 80000 THEN 'Medium'
         ELSE 'High'
     END as range,
     COUNT(*)
-FROM salaries
+FROM salary
 WHERE to_date = '9999-01-01'
 GROUP BY range;
 ```
 
 ```python
 # PySpark
-current_salaries = salaries_df.filter(col("to_date") == '9999-01-01')
-current_salaries.withColumn("range", 
-                   when(col("salary") < 50000, "Low")
-                   .when(col("salary") < 80000, "Medium")
+current_salary = salary_df.filter(col("to_date") == '9999-01-01')
+current_salary.withColumn("range", 
+                   when(col("amount") < 50000, "Low")
+                   .when(col("amount") < 80000, "Medium")
                    .otherwise("High")) \
                .groupBy("range").count() \
                .show()
@@ -669,9 +662,9 @@ current_salaries.withColumn("range",
 -- SQL
 WITH TitleCounts AS (
     SELECT d.dept_name, t.title, COUNT(*) as cnt
-    FROM dept_emp de
-    JOIN departments d ON de.dept_no = d.dept_no AND de.to_date = '9999-01-01'
-    JOIN titles t ON de.emp_no = t.emp_no AND t.to_date = '9999-01-01'
+    FROM department_employee de
+    JOIN department d ON de.department_id = d.id AND de.to_date = '9999-01-01'
+    JOIN title t ON de.employee_id = t.employee_id AND t.to_date = '9999-01-01'
     GROUP BY d.dept_name, t.title
 ),
 Ranked AS (
@@ -684,11 +677,12 @@ SELECT * FROM Ranked WHERE rn = 1;
 
 ```python
 # PySpark
-cond = [dept_emp_df.dept_no == departments_df.dept_no, dept_emp_df.to_date == '9999-01-01',
-        dept_emp_df.emp_no == titles_df.emp_no, titles_df.to_date == '9999-01-01']
+cond = [department_employee_df.department_id == department_df.id, department_employee_df.to_date == '9999-01-01',
+        department_employee_df.employee_id == title_df.employee_id, title_df.to_date == '9999-01-01']
 
-counts = dept_emp_df.join(departments_df, cond).join(titles_df, "emp_no") \
-                    .groupBy(departments_df.dept_name, titles_df.title).count()
+counts = department_employee_df.join(department_df, cond) \
+                              .join(title_df, department_employee_df.employee_id == title_df.employee_id) \
+                              .groupBy(department_df.dept_name, title_df.title).count()
 
 window_spec = Window.partitionBy("dept_name").orderBy(col("count").desc())
 counts.withColumn("rn", row_number().over(window_spec)) \
@@ -706,36 +700,38 @@ counts.withColumn("rn", row_number().over(window_spec)) \
 ```sql
 -- SQL
 WITH CurrentMgrs AS (
-    SELECT dm.dept_no, s.salary as mgr_sal
-    FROM dept_manager dm
-    JOIN salaries s ON dm.emp_no = s.emp_no AND s.to_date = '9999-01-01'
+    SELECT dm.department_id, s.amount as mgr_amount
+    FROM department_manager dm
+    JOIN salary s ON dm.employee_id = s.employee_id AND s.to_date = '9999-01-01'
     WHERE dm.to_date = '9999-01-01'
 )
-SELECT e.emp_no, d.dept_name, s.salary
-FROM employees e
-JOIN salaries s ON e.emp_no = s.emp_no AND s.to_date = '9999-01-01'
-JOIN dept_emp de ON e.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-JOIN departments d ON de.dept_no = d.dept_no
-JOIN CurrentMgrs cm ON d.dept_no = cm.dept_no
-WHERE s.salary > cm.mgr_sal;
+SELECT e.id, d.dept_name, s.amount
+FROM employee e
+JOIN salary s ON e.id = s.employee_id AND s.to_date = '9999-01-01'
+JOIN department_employee de ON e.id = de.employee_id AND de.to_date = '9999-01-01'
+JOIN department d ON de.department_id = d.id
+JOIN CurrentMgrs cm ON d.id = cm.department_id
+WHERE s.amount > cm.mgr_amount;
 ```
 
 ```python
 # PySpark
-mgr_cond = [dept_manager_df.emp_no == salaries_df.emp_no, salaries_df.to_date == '9999-01-01',
-            dept_manager_df.to_date == '9999-01-01']
-managers = dept_manager_df.join(salaries_df, mgr_cond) \
-                         .select(dept_manager_df.dept_no, salaries_df.salary.alias("mgr_sal"))
+mgr_cond = [department_manager_df.employee_id == salary_df.employee_id, salary_df.to_date == '9999-01-01',
+            department_manager_df.to_date == '9999-01-01']
+managers = department_manager_df.join(salary_df, mgr_cond) \
+                               .select(department_manager_df.department_id, salary_df.amount.alias("mgr_amount"))
 
-emp_cond = [employees_df.emp_no == salaries_df.emp_no, salaries_df.to_date == '9999-01-01',
-            employees_df.emp_no == dept_emp_df.emp_no, dept_emp_df.to_date == '9999-01-01',
-            dept_emp_df.dept_no == departments_df.dept_no]
+emp_cond = [employee_df.id == salary_df.employee_id, salary_df.to_date == '9999-01-01',
+            employee_df.id == department_employee_df.employee_id, department_employee_df.to_date == '9999-01-01',
+            department_employee_df.department_id == department_df.id]
 
-emps = employees_df.join(salaries_df, "emp_no").join(dept_emp_df, "emp_no").join(departments_df, "dept_no")
+emps = employee_df.join(salary_df, employee_df.id == salary_df.employee_id) \
+                  .join(department_employee_df, employee_df.id == department_employee_df.employee_id) \
+                  .join(department_df, department_employee_df.department_id == department_df.id)
 
-emps.join(managers, "dept_no") \
-    .filter(col("salary") > col("mgr_sal")) \
-    .select(employees_df.emp_no, departments_df.dept_name, salaries_df.salary) \
+emps.join(managers, emps.department_id == managers.department_id) \
+    .filter(emps.amount > managers.mgr_amount) \
+    .select(employee_df.id, department_df.dept_name, emps.amount) \
     .show()
 ```
 
@@ -745,19 +741,19 @@ emps.join(managers, "dept_no") \
 ```sql
 -- SQL
 SELECT 
-    e1.emp_no, e1.first_name, 
-    e2.emp_no, e2.first_name
-FROM employees e1
-JOIN employees e2 
+    e1.id, e1.first_name, 
+    e2.id, e2.first_name
+FROM employee e1
+JOIN employee e2 
     ON e1.birth_date = e2.birth_date 
-    AND e1.emp_no < e2.emp_no;
+    AND e1.id < e2.id;
 ```
 
 ```python
 # PySpark
-employees_df.alias("e1").join(employees_df.alias("e2"), 
-    (col("e1.birth_date") == col("e2.birth_date")) & (col("e1.emp_no") < col("e2.emp_no"))) \
-    .select(col("e1.emp_no"), col("e1.first_name"), col("e2.emp_no"), col("e2.first_name")) \
+employee_df.alias("e1").join(employee_df.alias("e2"), 
+    (col("e1.birth_date") == col("e2.birth_date")) & (col("e1.id") < col("e2.id"))) \
+    .select(col("e1.id"), col("e1.first_name"), col("e2.id"), col("e2.first_name")) \
     .show()
 ```
 
@@ -766,20 +762,20 @@ employees_df.alias("e1").join(employees_df.alias("e2"),
 
 ```sql
 -- SQL
-SELECT e.emp_no, e.first_name, COUNT(t.title) as title_count
-FROM employees e
-JOIN titles t ON e.emp_no = t.emp_no
-GROUP BY e.emp_no, e.first_name
+SELECT e.id, e.first_name, COUNT(t.title) as title_count
+FROM employee e
+JOIN title t ON e.id = t.employee_id
+GROUP BY e.id, e.first_name
 HAVING COUNT(t.title) > 1;
 ```
 
 ```python
 # PySpark
-employees_df.join(titles_df, "emp_no") \
-            .groupBy("emp_no", "first_name") \
-            .agg(count("title").alias("cnt")) \
-            .filter(col("cnt") > 1) \
-            .show()
+employee_df.join(title_df, employee_df.id == title_df.employee_id) \
+           .groupBy("id", "first_name") \
+           .agg(count("title").alias("cnt")) \
+           .filter(col("cnt") > 1) \
+           .show()
 ```
 
 **34. Employees who have changed departments.**
@@ -787,23 +783,23 @@ employees_df.join(titles_df, "emp_no") \
 
 ```sql
 -- SQL
-SELECT DISTINCT e.emp_no, e.first_name
-FROM employees e
-JOIN dept_emp de1 ON e.emp_no = de1.emp_no
-JOIN dept_emp de2 ON e.emp_no = de2.emp_no
-WHERE de1.dept_no <> de2.dept_no;
+SELECT DISTINCT e.id, e.first_name
+FROM employee e
+JOIN department_employee de1 ON e.id = de1.employee_id
+JOIN department_employee de2 ON e.id = de2.employee_id
+WHERE de1.department_id <> de2.department_id;
 ```
 
 ```python
 # PySpark
-d1 = dept_emp_df.alias("d1")
-d2 = dept_emp_df.alias("d2")
+d1 = department_employee_df.alias("d1")
+d2 = department_employee_df.alias("d2")
 
-d1.join(d2, "emp_no") \
-  .filter(col("d1.dept_no") != col("d2.dept_no")) \
-  .select("emp_no") \
+d1.join(d2, d1.employee_id == d2.employee_id) \
+  .filter(col("d1.department_id") != col("d2.department_id")) \
+  .select(col("d1.employee_id")) \
   .distinct() \
-  .join(employees_df, "emp_no") \
+  .join(employee_df, col("d1.employee_id") == employee_df.id) \
   .show()
 ```
 
@@ -812,22 +808,21 @@ d1.join(d2, "emp_no") \
 
 ```sql
 -- SQL
-SELECT DISTINCT s1.emp_no
-FROM salaries s1
-JOIN salaries s2 ON s1.emp_no = s2.emp_no
+SELECT DISTINCT s1.employee_id
+FROM salary s1
+JOIN salary s2 ON s1.employee_id = s2.employee_id
     AND s2.from_date = s1.to_date -- Next record starts when previous ends
-WHERE s2.salary < s1.salary;
+WHERE s2.amount < s1.amount;
 ```
 
 ```python
 # PySpark
-# Using window function (lag) is easier, but strictly Self Join:
-s1 = salaries_df.alias("s1")
-s2 = salaries_df.alias("s2")
+s1 = salary_df.alias("s1")
+s2 = salary_df.alias("s2")
 
-s1.join(s2, (col("s1.emp_no") == col("s2.emp_no")) & (col("s2.from_date") == col("s1.to_date"))) \
-  .filter(col("s2.salary") < col("s1.salary")) \
-  .select(col("s1.emp_no")) \
+s1.join(s2, (col("s1.employee_id") == col("s2.employee_id")) & (col("s2.from_date") == col("s1.to_date"))) \
+  .filter(col("s2.amount") < col("s1.amount")) \
+  .select(col("s1.employee_id")) \
   .distinct() \
   .show()
 ```
@@ -837,13 +832,13 @@ s1.join(s2, (col("s1.emp_no") == col("s2.emp_no")) & (col("s2.from_date") == col
 
 ```sql
 -- SQL
-SELECT e.emp_no, e1.to_date, e2.from_date
-FROM dept_emp e1
-JOIN dept_emp e2 ON e1.emp_no = e2.emp_no 
+SELECT e.id, e1.to_date, e2.from_date
+FROM department_employee e1
+JOIN department_employee e2 ON e1.employee_id = e2.employee_id 
     AND e1.from_date < e2.from_date
 WHERE NOT EXISTS (
-    SELECT 1 FROM dept_emp e3 
-    WHERE e3.emp_no = e1.emp_no 
+    SELECT 1 FROM department_employee e3 
+    WHERE e3.employee_id = e1.employee_id 
     AND e3.from_date > e1.from_date 
     AND e3.from_date < e2.from_date
 );
@@ -851,14 +846,12 @@ WHERE NOT EXISTS (
 
 ```python
 # PySpark
-# This is complex. A simpler approach:
-# Find cases where to_date is not '9999-01-01' and no record starts the next day
-d1 = dept_emp_df.filter(col("to_date") != '9999-01-01')
-d2 = dept_emp_df
+d1 = department_employee_df.alias("d1")
+d2 = department_employee_df.alias("d2")
 
-d1.join(d2, d1["emp_no"] == d2["emp_no"]) \
-  .filter(d1["to_date"] < d2["from_date"]) \
-  .filter(d1["emp_no"] == 10001) # Filter for specific emp for sanity
+d1.join(d2, col("d1.employee_id") == col("d2.employee_id")) \
+  .filter(col("d1.to_date") < col("d2.from_date")) \
+  .filter(col("d1.employee_id") == 10001) 
   .show()
 ```
 
@@ -869,18 +862,18 @@ d1.join(d2, d1["emp_no"] == d2["emp_no"]) \
 -- SQL
 SELECT e.first_name, d.dept_name, 
        DATEDIFF(CURRENT_DATE, de.from_date) as days_in_dept
-FROM employees e
-JOIN dept_emp de ON e.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-JOIN departments d ON de.dept_no = d.dept_no;
+FROM employee e
+JOIN department_employee de ON e.id = de.employee_id AND de.to_date = '9999-01-01'
+JOIN department d ON de.department_id = d.id;
 ```
 
 ```python
 # PySpark
-# Spark's datediff takes (end, start)
-cond = [employees_df.emp_no == dept_emp_df.emp_no, dept_emp_df.to_date == '9999-01-01',
-        dept_emp_df.dept_no == departments_df.dept_no]
+cond = [employee_df.id == department_employee_df.employee_id, department_employee_df.to_date == '9999-01-01',
+        department_employee_df.department_id == department_df.id]
 
-joined = employees_df.join(dept_emp_df, "emp_no").join(departments_df, "dept_no")
+joined = employee_df.join(department_employee_df, employee_df.id == department_employee_df.employee_id) \
+                   .join(department_df, "department_id")
 joined.withColumn("days", datediff(current_date(), col("from_date"))) \
      .select("first_name", "dept_name", "days") \
      .show()
@@ -892,30 +885,29 @@ joined.withColumn("days", datediff(current_date(), col("from_date"))) \
 ```sql
 -- SQL
 WITH LastTwo AS (
-    SELECT emp_no, salary,
-           ROW_NUMBER() OVER (PARTITION BY emp_no ORDER BY from_date DESC) as rn
-    FROM salaries
+    SELECT employee_id, amount,
+           ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY from_date DESC) as rn
+    FROM salary
 )
 SELECT 
-    cur.emp_no, 
-    cur.salary, 
-    prev.salary as old_salary,
-    ((cur.salary - prev.salary) / prev.salary) * 100 as pct_increase
+    cur.employee_id, 
+    cur.amount, 
+    prev.amount as old_amount,
+    ((cur.amount - prev.amount) / prev.amount) * 100 as pct_increase
 FROM LastTwo cur
-JOIN LastTwo prev ON cur.emp_no = prev.emp_no AND cur.rn = 1 AND prev.rn = 2;
+JOIN LastTwo prev ON cur.employee_id = prev.employee_id AND cur.rn = 1 AND prev.rn = 2;
 ```
 
 ```python
 # PySpark
-window_spec = Window.partitionBy("emp_no").orderBy(col("from_date").desc())
-ranked = salaries_df.withColumn("rn", row_number().over(window_spec))
+window_spec = Window.partitionBy("employee_id").orderBy(col("from_date").desc())
+ranked = salary_df.withColumn("rn", row_number().over(window_spec))
 
-# Self join
-cur = ranked.filter(col("rn") == 1).withColumnRenamed("salary", "cur_sal")
-prev = ranked.filter(col("rn") == 2).withColumnRenamed("salary", "prev_sal")
+cur = ranked.filter(col("rn") == 1).withColumnRenamed("amount", "cur_amount")
+prev = ranked.filter(col("rn") == 2).withColumnRenamed("amount", "prev_amount")
 
-cur.join(prev, "emp_no") \
-    .withColumn("pct", ((col("cur_sal") - col("prev_sal")) / col("prev_sal")) * 100) \
+cur.join(prev, "employee_id") \
+    .withColumn("pct", ((col("cur_amount") - col("prev_amount")) / col("prev_amount")) * 100) \
     .show()
 ```
 
@@ -924,27 +916,27 @@ cur.join(prev, "emp_no") \
 
 ```sql
 -- SQL
-SELECT d.dept_name, AVG(s.salary)
-FROM salaries s
-JOIN dept_emp de ON s.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-JOIN departments d ON de.dept_no = d.dept_no
+SELECT d.dept_name, AVG(s.amount)
+FROM salary s
+JOIN department_employee de ON s.employee_id = de.employee_id AND de.to_date = '9999-01-01'
+JOIN department d ON de.department_id = d.id
 WHERE s.to_date = '9999-01-01'
 GROUP BY d.dept_name
-HAVING AVG(s.salary) > (SELECT AVG(salary) FROM salaries WHERE to_date = '9999-01-01');
+HAVING AVG(s.amount) > (SELECT AVG(amount) FROM salary WHERE to_date = '9999-01-01');
 ```
 
 ```python
 # PySpark
-# Calculate global avg
-global_avg = salaries_df.filter(col("to_date") == '9999-01-01').agg(avg("salary")).collect()[0][0]
+global_avg = salary_df.filter(col("to_date") == '9999-01-01').agg(avg("amount")).collect()[0][0]
 
-cond = [salaries_df.emp_no == dept_emp_df.emp_no, dept_emp_df.to_date == '9999-01-01',
-        salaries_df.to_date == '9999-01-01', dept_emp_df.dept_no == departments_df.dept_no]
+cond = [salary_df.employee_id == department_employee_df.employee_id, department_employee_df.to_date == '9999-01-01',
+        salary_df.to_date == '9999-01-01', department_employee_df.department_id == department_df.id]
 
-joined = salaries_df.join(dept_emp_df, "emp_no").join(departments_df, "dept_no")
+joined = salary_df.join(department_employee_df, salary_df.employee_id == department_employee_df.employee_id) \
+                  .join(department_df, "department_id")
 joined.groupBy("dept_name") \
-      .agg(avg("salary").alias("avg_sal")) \
-      .filter(col("avg_sal") > global_avg) \
+      .agg(avg("amount").alias("avg_amount")) \
+      .filter(col("avg_amount") > global_avg) \
       .show()
 ```
 
@@ -955,24 +947,24 @@ joined.groupBy("dept_name") \
 -- SQL
 WITH ManagerTenure AS (
     SELECT 
-        dm.dept_no, e.emp_no, e.first_name,
+        dm.department_id, e.employee_id, e.first_name,
         DATEDIFF(dm.to_date, dm.from_date) as days
-    FROM dept_manager dm
-    JOIN employees e ON dm.emp_no = e.emp_no
+    FROM department_manager dm
+    JOIN employee e ON dm.employee_id = e.id
 )
 SELECT * FROM (
     SELECT *,
-           ROW_NUMBER() OVER (PARTITION BY dept_no ORDER BY days DESC) as rn
+           ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY days DESC) as rn
     FROM ManagerTenure
 ) t WHERE rn = 1;
 ```
 
 ```python
 # PySpark
-joined = dept_manager_df.join(employees_df, "emp_no")
+joined = department_manager_df.join(employee_df, department_manager_df.employee_id == employee_df.id)
 joined = joined.withColumn("days", datediff(col("to_date"), col("from_date")))
 
-window_spec = Window.partitionBy("dept_no").orderBy(col("days").desc())
+window_spec = Window.partitionBy("department_id").orderBy(col("days").desc())
 joined.withColumn("rn", row_number().over(window_spec)) \
       .filter(col("rn") == 1) \
       .show()
@@ -982,7 +974,7 @@ joined.withColumn("rn", row_number().over(window_spec)) \
 
 ### Group 6: Recursion & Time Series Logic (41-50)
 
-*Note: PySpark does not support recursive CTEs natively. Solutions use Range Joins (exploding a date sequence) to achieve the same result.*
+*Note: PySpark does not support recursive CTEs. Solutions use Range Joins (exploding a date sequence) to achieve the same result.*
 
 **41. Generate a report of total hires per month, filling months with 0 hires.**
 *Concept: Time Series Generation (SQL Recursive vs PySpark Range Join)*
@@ -990,31 +982,30 @@ joined.withColumn("rn", row_number().over(window_spec)) \
 ```sql
 -- SQL (Recursive CTE)
 WITH RECURSIVE DateSeries AS (
-    SELECT MIN(hire_date) as dt FROM employees
+    SELECT MIN(hire_date) as dt FROM employee
     UNION ALL
-    SELECT DATE_ADD(dt, INTERVAL 1 MONTH) FROM DateSeries WHERE dt < (SELECT MAX(hire_date) FROM employees)
+    SELECT DATE_ADD(dt, INTERVAL 1 MONTH) FROM DateSeries WHERE dt < (SELECT MAX(hire_date) FROM employee)
 )
 SELECT 
     ds.dt, 
-    COUNT(e.emp_no) as hires
+    COUNT(e.id) as hires
 FROM DateSeries ds
-LEFT JOIN employees e ON ds.dt = DATE_FORMAT(e.hire_date, '%Y-%m-01')
+LEFT JOIN employee e ON ds.dt = DATE_TRUNC('month', e.hire_date)
 GROUP BY ds.dt;
 ```
 
 ```python
 # PySpark
-# 1. Generate Months Range
-min_date = employees_df.agg(min("hire_date")).collect()[0][0].replace(day=1)
-max_date = employees_df.agg(max("hire_date")).collect()[0][0].replace(day=1)
-
-# Generate sequence in Python for the DataFrame creation
 import pandas as pd
+
+# 1. Generate Month Series
+min_date = employee_df.agg(min("hire_date")).collect()[0][0].replace(day=1)
+max_date = employee_df.agg(max("hire_date")).collect()[0][0].replace(day=1)
 date_range = pd.date_range(start=min_date, end=max_date, freq='MS')
 months_df = spark.createDataFrame(date_range.to_frame(index=False), DateType()).toDF("month_start")
 
 # 2. Prepare hires data
-hires_df = employees_df.withColumn("month_start", trunc("hire_date", "month")) \
+hires_df = employee_df.withColumn("month_start", trunc("hire_date", "month")) \
                        .groupBy("month_start") \
                        .count()
 
@@ -1031,14 +1022,14 @@ months_df.join(hires_df, "month_start", "left") \
 ```sql
 -- SQL (Recursive CTE + Window)
 WITH DateSeries AS (
-    SELECT MIN(hire_date) as dt FROM employees
+    SELECT MIN(hire_date) as dt FROM employee
     UNION ALL
     SELECT DATE_ADD(dt, INTERVAL 1 DAY) FROM DateSeries WHERE dt < '2000-01-01' -- Limit for demo
 ),
 HireCounts AS (
-    SELECT ds.dt, COUNT(e.emp_no) as new_hires
+    SELECT ds.dt, COUNT(e.id) as new_hires
     FROM DateSeries ds
-    LEFT JOIN employees e ON ds.dt = e.hire_date
+    LEFT JOIN employee e ON ds.dt = e.hire_date
     GROUP BY ds.dt
 )
 SELECT dt, SUM(new_hires) OVER (ORDER BY dt ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as total_headcount
@@ -1047,18 +1038,15 @@ FROM HireCounts;
 
 ```python
 # PySpark
-# Create daily sequence between two dates
-start = employees_df.agg(min("hire_date")).collect()[0][0]
-end = employees_df.agg(max("hire_date")).collect()[0][0]
-
-# Use Spark range and sequence to generate days (Spark 2.4+)
+# Create daily sequence
+start = employee_df.agg(min("hire_date")).collect()[0][0]
+end = employee_df.agg(max("hire_date")).collect()[0][0]
 num_days = (end - start).days
 days_df = spark.range(num_days).select(expr("date_add(date('{}'), cast(id as int)) as dt".format(start)))
 
-# Join hires
-hires_df = employees_df.groupBy("hire_date").count().withColumnRenamed("hire_date", "dt")
-
+hires_df = employee_df.groupBy("hire_date").count().withColumnRenamed("hire_date", "dt")
 joined = days_df.join(hires_df, "dt", "left").na.fill(0)
+
 joined.withColumn("running_total", sum("count").over(Window.orderBy("dt").rowsBetween(Window.unboundedPreceding, Window.currentRow))) \
       .show()
 ```
@@ -1067,36 +1055,32 @@ joined.withColumn("running_total", sum("count").over(Window.orderBy("dt").rowsBe
 *Concept: Expanding date ranges into monthly records*
 
 ```sql
--- SQL (Recursive CTE)
--- (This is extremely complex in pure SQL without helper tables, so we assume a standard date_series table exists)
+-- SQL
+-- (Assumes date_series table exists or logic from #41 is used)
 SELECT 
     ds.month_start,
-    COUNT(DISTINCT de.emp_no) as active_emps
+    COUNT(DISTINCT de.employee_id) as active_emps
 FROM date_series ds
-JOIN dept_emp de 
-    ON ds.month_start BETWEEN DATE_FORMAT(de.from_date, '%Y-%m-01') AND DATE_FORMAT(de.to_date, '%Y-%m-01')
+JOIN department_employee de 
+    ON ds.month_start >= DATE_TRUNC('month', de.from_date) 
+    AND ds.month_start <= DATE_TRUNC('month', de.to_date)
 GROUP BY ds.month_start;
 ```
 
 ```python
 # PySpark
-# 1. Generate Month Series
-start = dept_emp_df.agg(min("from_date")).collect()[0][0].replace(day=1)
-end = dept_emp_df.agg(max("to_date")).collect()[0][0].replace(day=1)
-date_list = pd.date_range(start, end, freq='MS')
+# Generate Month Series (similar to Q41)
+min_date = department_employee_df.agg(min("from_date")).collect()[0][0].replace(day=1)
+max_date = department_employee_df.agg(max("to_date")).collect()[0][0].replace(day=1)
+date_list = pd.date_range(min_date, max_date, freq='MS')
 months_df = spark.createDataFrame(date_list.to_frame(index=False), DateType()).toDF("month_start")
 
-# 2. Normalize dept_emp to monthly granularity is expensive.
-#    Instead, use a Range Join condition.
-#    Employee is active if month_start is between from_date and to_date.
-#    (Warning: This is a broadcast join if one side is small, otherwise cross join with filter)
-
-# Efficient approach: Filter current employees only for simplicity, or expand range:
-active_counts = months_df.crossJoin(dept_emp_df) \
+# Range Join: Active if month_start is between from_date and to_date
+active_counts = months_df.crossJoin(department_employee_df) \
     .filter((col("month_start") >= trunc(col("from_date"), "month")) & 
             (col("month_start") <= trunc(col("to_date"), "month"))) \
     .groupBy("month_start") \
-    .agg(countDistinct("emp_no").alias("active_employees"))
+    .agg(countDistinct("employee_id").alias("active_employees"))
 
 active_counts.show()
 ```
@@ -1107,9 +1091,9 @@ active_counts.show()
 ```sql
 -- SQL
 WITH MonthlyExpense AS (
-    SELECT DATE_FORMAT(from_date, '%Y-%m-01') as mth, SUM(salary) as total_cost
-    FROM salaries
-    GROUP BY DATE_FORMAT(from_date, '%Y-%m-01')
+    SELECT DATE_TRUNC('month', from_date) as mth, SUM(amount) as total_cost
+    FROM salary
+    GROUP BY DATE_TRUNC('month', from_date)
 )
 SELECT 
     mth, total_cost,
@@ -1120,9 +1104,8 @@ FROM MonthlyExpense;
 
 ```python
 # PySpark
-monthly = salaries_df.groupBy(trunc("from_date", "month").alias("mth")).sum("salary").withColumnRenamed("sum(salary)", "cost")
+monthly = salary_df.groupBy(trunc("from_date", "month").alias("mth")).sum("amount").withColumnRenamed("sum(amount)", "cost")
 window_spec = Window.orderBy("mth")
-
 monthly.withColumn("prev_cost", lag("cost").over(window_spec)) \
        .withColumn("growth", (col("cost") - col("prev_cost")) / col("prev_cost")) \
        .show()
@@ -1140,13 +1123,13 @@ SELECT
         ELSE 'Senior'
     END as tenure,
     COUNT(*)
-FROM employees
+FROM employee
 GROUP BY tenure;
 ```
 
 ```python
 # PySpark
-employees_df.withColumn("days", datediff(current_date(), "hire_date")) \
+employee_df.withColumn("days", datediff(current_date(), "hire_date")) \
             .withColumn("tenure",
                 when(col("days") < 365, "Junior")
                 .when(col("days") < 1825, "Mid")
@@ -1160,23 +1143,23 @@ employees_df.withColumn("days", datediff(current_date(), "hire_date")) \
 
 ```sql
 -- SQL
-SELECT DISTINCT s1.emp_no
-FROM salaries s1
-JOIN salaries s2 ON s1.emp_no = s2.emp_no
-    AND YEAR(s1.from_date) = YEAR(s2.from_date) - 1
-    AND s2.salary > s1.salary;
+SELECT DISTINCT s1.employee_id
+FROM salary s1
+JOIN salary s2 ON s1.employee_id = s2.employee_id
+    AND YEAR(s1.from_date) + 1 = YEAR(s2.from_date)
+    AND s2.amount > s1.amount;
 ```
 
 ```python
 # PySpark
-s1 = salaries_df.withColumn("y", year("from_date"))
-s2 = salaries_df.withColumn("y", year("from_date"))
+s1 = salary_df.withColumn("y", year("from_date"))
+s2 = salary_df.withColumn("y", year("from_date"))
 
 s1.alias("a").join(s2.alias("b"), 
-    (col("a.emp_no") == col("b.emp_no")) & 
+    (col("a.employee_id") == col("b.employee_id")) & 
     (col("a.y") + 1 == col("b.y")) & 
-    (col("b.salary") > col("a.salary"))) \
-    .select(col("a.emp_no")).distinct().show()
+    (col("b.amount") > col("a.amount"))) \
+    .select(col("a.employee_id")).distinct().show()
 ```
 
 **47. Determine the hire date cohort (Year) and retention count.**
@@ -1187,14 +1170,14 @@ s1.alias("a").join(s2.alias("b"),
 SELECT 
     YEAR(hire_date) as cohort,
     COUNT(*) OVER (PARTITION BY YEAR(hire_date) ORDER BY hire_date) as running_retention
-FROM employees
+FROM employee
 ORDER BY hire_date;
 ```
 
 ```python
 # PySpark
 window_spec = Window.partitionBy(year("hire_date")).orderBy("hire_date")
-employees_df.withColumn("cohort", year("hire_date")) \
+employee_df.withColumn("cohort", year("hire_date")) \
             .withColumn("running_retention", count("*").over(window_spec)) \
             .show()
 ```
@@ -1205,8 +1188,8 @@ employees_df.withColumn("cohort", year("hire_date")) \
 ```sql
 -- SQL
 SELECT d.dept_name, COUNT(*) 
-FROM departments d
-JOIN dept_emp de ON d.dept_no = de.dept_no
+FROM department d
+JOIN department_employee de ON d.id = de.department_id
 WHERE de.to_date = '9999-01-01'
 GROUP BY d.dept_name;
 ```
@@ -1214,11 +1197,11 @@ GROUP BY d.dept_name;
 ```python
 # PySpark
 # Just current headcount
-dept_emp_df.filter(col("to_date") == '9999-01-01') \
-           .groupBy("dept_no") \
-           .count() \
-           .join(departments_df, "dept_no") \
-           .show()
+department_employee_df.filter(col("to_date") == '9999-01-01') \
+                      .groupBy("department_id") \
+                      .count() \
+                      .join(department_df, department_employee_df.department_id == department_df.id) \
+                      .show()
 ```
 
 **49. Identify employees whose current salary is not the highest they've ever earned.**
@@ -1227,25 +1210,25 @@ dept_emp_df.filter(col("to_date") == '9999-01-01') \
 ```sql
 -- SQL
 WITH MaxSal AS (
-    SELECT emp_no, MAX(salary) as max_ever
-    FROM salaries
-    GROUP BY emp_no
+    SELECT employee_id, MAX(amount) as max_ever
+    FROM salary
+    GROUP BY employee_id
 )
-SELECT e.first_name, e.last_name, s.current_salary, m.max_ever
-FROM employees e
-JOIN (SELECT emp_no, salary as current_salary FROM salaries WHERE to_date = '9999-01-01') s ON e.emp_no = s.emp_no
-JOIN MaxSal m ON e.emp_no = m.emp_no
-WHERE s.current_salary < m.max_ever;
+SELECT e.first_name, e.last_name, s.current_amount, m.max_ever
+FROM employee e
+JOIN (SELECT employee_id, amount as current_amount FROM salary WHERE to_date = '9999-01-01') s ON e.id = s.employee_id
+JOIN MaxSal m ON e.id = m.employee_id
+WHERE s.current_amount < m.max_ever;
 ```
 
 ```python
 # PySpark
-max_ever = salaries_df.groupBy("emp_no").agg(max("salary").alias("max_ever"))
-current = salaries_df.filter(col("to_date") == '9999-01-01').withColumnRenamed("salary", "current")
+max_ever = salary_df.groupBy("employee_id").agg(max("amount").alias("max_ever"))
+current = salary_df.filter(col("to_date") == '9999-01-01').withColumnRenamed("amount", "current")
 
-current.join(max_ever, "emp_no") \
+current.join(max_ever, "employee_id") \
        .filter(col("current") < col("max_ever")) \
-       .join(employees_df, "emp_no") \
+       .join(employee_df, current.employee_id == employee_df.id) \
        .select("first_name", "last_name", "current", "max_ever") \
        .show()
 ```
@@ -1255,10 +1238,10 @@ current.join(max_ever, "emp_no") \
 
 ```sql
 -- SQL
-SELECT d.dept_name, VAR_POP(s.salary) as variance
-FROM salaries s
-JOIN dept_emp de ON s.emp_no = de.emp_no AND de.to_date = '9999-01-01'
-JOIN departments d ON de.dept_no = d.dept_no
+SELECT d.dept_name, VAR_POP(s.amount) as variance
+FROM salary s
+JOIN department_employee de ON s.employee_id = de.employee_id AND de.to_date = '9999-01-01'
+JOIN department d ON de.department_id = d.id
 WHERE s.to_date = '9999-01-01'
 GROUP BY d.dept_name
 ORDER BY variance DESC
@@ -1269,12 +1252,12 @@ LIMIT 1;
 # PySpark
 from pyspark.sql.functions import var_samp
 
-cond = [salaries_df.emp_no == dept_emp_df.emp_no, dept_emp_df.to_date == '9999-01-01',
-        salaries_df.to_date == '9999-01-01', dept_emp_df.dept_no == departments_df.dept_no]
+cond = [salary_df.employee_id == department_employee_df.employee_id, department_employee_df.to_date == '9999-01-01',
+        salary_df.to_date == '9999-01-01', department_employee_df.department_id == department_df.id]
 
-joined = salaries_df.join(dept_emp_df, "emp_no").join(departments_df, "dept_no")
+joined = salary_df.join(department_employee_df, cond).join(department_df, "department_id")
 joined.groupBy("dept_name") \
-      .agg(var_samp("salary").alias("variance")) \
+      .agg(var_samp("amount").alias("variance")) \
       .orderBy(col("variance").desc()) \
       .limit(1) \
       .show()
