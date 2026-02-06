@@ -246,6 +246,113 @@ body {
     overflow-x: auto;
 }
 
+/* Schema Container */
+.schema-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.schema-table {
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+}
+
+.schema-table-name {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    background: var(--surface-light);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    border-bottom: 1px solid var(--border);
+}
+
+.schema-table-structure {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.schema-table-structure th {
+    padding: 0.5rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    background: var(--background);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.schema-table-structure td {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.schema-table-structure tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.type-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    background: #6366f120;
+    color: #6366f1;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Sample Data */
+.sample-data {
+    padding: 1rem;
+    background: var(--background);
+    border-top: 1px solid var(--border);
+}
+
+.sample-data h5 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.sample-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.sample-data-table th {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    background: var(--surface-light);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.sample-data-table td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Courier New', monospace;
+}
+
+.sample-data-table tbody tr:hover {
+    background: var(--surface);
+}
+
+.sample-data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.sample-note {
+    margin: 0.5rem 0 0 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 /* Editor Section */
 .editor-section {
     background: var(--surface);

@@ -91,9 +91,9 @@ async function loadQuestion(slug) {
         }
 
         // Show schema if available
-        if (question.schema_data) {
+        if (question.schema && question.schema.length > 0) {
             document.getElementById('schema-panel').style.display = 'block';
-            document.getElementById('schema-content').innerHTML = formatSchema(question.schema_data);
+            document.getElementById('schema-content').innerHTML = formatSchema(question.schema, question.sample_data);
         } else {
             document.getElementById('schema-panel').style.display = 'none';
         }
@@ -123,12 +123,65 @@ async function loadQuestion(slug) {
 }
 
 // Format schema for display
-function formatSchema(schemaData) {
-    // This would be expanded based on actual schema structure
-    if (typeof schemaData === 'object') {
-        return '<pre>' + JSON.stringify(schemaData, null, 2) + '</pre>';
-    }
-    return '<pre>' + schemaData + '</pre>';
+function formatSchema(schema, sampleData) {
+    if (!schema || schema.length === 0) return '';
+
+    let html = '<div class="schema-container">';
+
+    schema.forEach(table => {
+        html += `
+            <div class="schema-table">
+                <h4 class="schema-table-name">${table.name}</h4>
+                <table class="schema-table-structure">
+                    <thead>
+                        <tr>
+                            <th>Column</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${table.columns.map(col => `
+                            <tr>
+                                <td><code>${col.name}</code></td>
+                                <td><span class="type-badge">${col.type}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+        `;
+
+        // Add sample data if available
+        if (sampleData && sampleData[table.name]) {
+            const sampleRows = sampleData[table.name];
+            if (sampleRows && sampleRows.length > 0) {
+                html += `
+                    <div class="sample-data">
+                        <h5>Sample Data</h5>
+                        <table class="sample-data-table">
+                            <thead>
+                                <tr>
+                                    ${table.columns.map(col => `<th>${col.name}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${sampleRows.map(row => `
+                                    <tr>
+                                        ${table.columns.map(col => `<td>${row[col] || 'NULL'}</td>`).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                        ${sampleRows.length > 0 ? '<p class="sample-note">Showing first ' + sampleRows.length + ' rows</p>' : ''}
+                    </div>
+                `;
+            }
+        }
+
+        html += '</div>';
+    });
+
+    html += '</div>';
+    return html;
 }
 
 // Run SQL query
