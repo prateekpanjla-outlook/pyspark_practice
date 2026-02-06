@@ -72,6 +72,8 @@ void QuestionLoader::load_embedded_questions() {
             }
             q.expected_output.rows.push_back(std_row);
         }
+        // Mark expected output as valid for comparison
+        q.expected_output.success = true;
 
         // Store in maps
         if (!q.id.empty()) {

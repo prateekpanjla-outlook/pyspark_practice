@@ -22,9 +22,10 @@ struct UserSession {
     std::unique_ptr<DuckDBConnection> db_conn;
     std::chrono::steady_clock::time_point last_activity;
     int query_count;
+    std::string current_question_id;  // Track which question's schema is loaded
 
     UserSession(const std::string& uid, const std::string& token)
-        : user_id(uid), session_token(token), query_count(0) {
+        : user_id(uid), session_token(token), query_count(0), current_question_id("") {
         last_activity = std::chrono::steady_clock::now();
     }
 

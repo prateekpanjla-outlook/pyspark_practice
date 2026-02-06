@@ -194,7 +194,7 @@ public:
                 }
             }
 
-            // Parse question_id (for result comparison)
+            // Parse question_id (for result comparison and schema initialization)
             std::string question_id;
             size_t qid_pos = body.find("\"question_id\":");
             if (qid_pos != std::string::npos) {
@@ -205,6 +205,24 @@ public:
                 }
             }
 
+            // Also parse question_slug as alternative to question_id
+            std::string question_slug;
+            size_t slug_pos = body.find("\"question_slug\":");
+            if (slug_pos != std::string::npos) {
+                size_t start = body.find("\"", slug_pos + 17);
+                size_t end = body.find("\"", start + 1);
+                if (start != std::string::npos && end != std::string::npos) {
+                    question_slug = body.substr(start + 1, end - start - 1);
+                }
+                // Convert slug to question_id
+                if (!question_slug.empty()) {
+                    auto q = question_loader->get_question_by_slug(question_slug);
+                    if (q) {
+                        question_id = q->id;
+                    }
+                }
+            }
+
             if (user_sql.empty()) {
                 auto dto = oatpp::String("{\"is_correct\":false,\"error\":\"user_sql is required\"}");
                 return oatpp::web::protocol::http::outgoing::ResponseFactory::createResponse(
@@ -212,8 +230,19 @@ public:
                 );
             }
 
-            // Execute SQL
+            // Initialize schema if question_id is provided and different from current
             SQLExecutor executor;
+            if (!question_id.empty() && session->current_question_id != question_id) {
+                auto question = question_loader->get_question_by_id(question_id);
+                if (question) {
+                    bool initialized = executor.initialize_schema(session->db_conn.get(), question->schema);
+                    if (initialized) {
+                        session->current_question_id = question_id;
+                    }
+                }
+            }
+
+            // Execute SQL
             auto result = executor.execute(session->db_conn.get(), user_sql);
 
             if (!result.success) {

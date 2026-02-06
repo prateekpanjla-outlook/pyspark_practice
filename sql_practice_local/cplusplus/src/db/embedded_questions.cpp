@@ -47,8 +47,8 @@ static const QuestionDef question_1 = {
             {{"id", "4"}, {"name", "David"}, {"salary", "85000"}, {"department_id", "2"}}
         }}
     },
-    {"second_highest_salary"},
-    {{{"second_highest_salary", "100000"}}}
+    {"SecondHighestSalary"},
+    {{{"SecondHighestSalary", "100000"}}}
 };
 
 // =============================================================================

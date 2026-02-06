@@ -42,26 +42,37 @@ message(STATUS "DuckDB Library: ${DUCKDB_LIBRARY}")
 # Find packages
 find_package(Threads REQUIRED)
 
-# Oat++ - Download via FetchContent
-include(FetchContent)
+# Oat++ - Use local dependency if available, otherwise download
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/oatpp/CMakeLists.txt")
+    set(OATPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/deps/oatpp)
+    message(STATUS "Using local Oat++ from deps/")
+else()
+    include(FetchContent)
+    set(OATPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        oatpp
+        GIT_REPOSITORY https://github.com/oatpp/oatpp.git
+        GIT_TAG 1.3.0
+    )
+    FetchContent_MakeAvailable(oatpp)
+    message(STATUS "Downloaded Oat++ from GitHub")
+endif()
 
-# Disable Oat++ tests to save memory during build
-set(OATPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-
-FetchContent_Declare(
-    oatpp
-    GIT_REPOSITORY https://github.com/oatpp/oatpp.git
-    GIT_TAG 1.3.0
-)
-FetchContent_MakeAvailable(oatpp)
-
-# nlohmann/json (header-only)
-FetchContent_Declare(
-    json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.3
-)
-FetchContent_MakeAvailable(json)
+# nlohmann/json - Use local dependency if available, otherwise download
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps/json/single_include/nlohmann/json.hpp")
+    # Header-only - just add include path
+    message(STATUS "Using local nlohmann/json from deps/")
+else()
+    include(FetchContent)
+    FetchContent_Declare(
+        json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+    )
+    FetchContent_MakeAvailable(json)
+    message(STATUS "Downloaded nlohmann/json from GitHub")
+endif()
 
 # Source files
 set(SOURCES
@@ -86,12 +97,12 @@ set(HEADERS
 add_executable(sql-practice-server ${SOURCES} ${HEADERS})
 
 # Link libraries - link DuckDB first before other libraries
+# nlohmann/json is header-only, so we only include it, not link it
 target_link_libraries(sql-practice-server
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/libduckdb.so"
         oatpp
         ${DUCKDB_EXTRA_LIB}
-        nlohmann_json::nlohmann_json
         Threads::Threads
         rt
 )
@@ -102,7 +113,8 @@ target_include_directories(sql-practice-server
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/src/include
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_BINARY_DIR}/_deps/oatpp-src/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/deps/oatpp/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/deps/json/single_include
 )
 
 # Platform-specific post-build
