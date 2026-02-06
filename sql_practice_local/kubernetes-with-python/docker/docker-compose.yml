@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sql-practice-db
+    environment:
+      POSTGRES_DB: sql_practice
+      POSTGRES_USER: sqlpractice
+      POSTGRES_PASSWORD: sqlpractice123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sqlpractice"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sql-practice-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: sql-practice-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sql-practice-network
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: sql-practice-backend
+    environment:
+      DATABASE_URL: postgresql://sqlpractice:sqlpractice123@postgres:5432/sql_practice
+      REDIS_URL: redis://redis:6379
+      SQL_ENGINE_URL: http://sql-engine:8001
+      JWT_SECRET: dev-secret-key-change-in-production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+    networks:
+      - sql-practice-network
+
+  # SQL Execution Engine
+  sql-engine:
+    build:
+      context: ../sql-engine
+      dockerfile: Dockerfile
+    container_name: sql-practice-sql-engine
+    environment:
+      DATABASE_URL: postgresql://sqlpractice:sqlpractice123@postgres:5432/sql_practice
+      MAX_CONTAINERS: 10
+      QUERY_TIMEOUT: 30
+      MEMORY_LIMIT: 512m
+      CPU_LIMIT: 0.5
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../sql-engine:/app
+    networks:
+      - sql-practice-network
+    # Note: Docker-in-Docker requires privileged mode or proper socket mounting
+
+  # Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: sql-practice-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - sql-practice-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  sql-practice-network:
+    driver: bridge

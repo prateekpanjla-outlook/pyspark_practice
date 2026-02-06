@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sql-engine
+  namespace: sql-practice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sql-engine
+  template:
+    metadata:
+      labels:
+        app: sql-engine
+    spec:
+      containers:
+      - name: sql-engine
+        image: sql-practice-sql-engine:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        - name: DATABASE_URL
+          value: postgresql://sqlpractice:sqlpractice123@postgres:5432/sql_practice
+        - name: MAX_CONTAINERS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: MAX_CONTAINERS
+        - name: QUERY_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: QUERY_TIMEOUT
+        - name: MEMORY_LIMIT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: MEMORY_LIMIT
+        - name: CPU_LIMIT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CPU_LIMIT
+        volumeMounts:
+        - name: docker-socket
+          mountPath: /var/run/docker.sock
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        securityContext:
+          # Allow running Docker-in-Docker
+          privileged: false
+          capabilities:
+            add:
+            - SYS_ADMIN
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sql-engine
+  namespace: sql-practice
+spec:
+  selector:
+    app: sql-engine
+  ports:
+  - port: 8001
+    targetPort: 8001
+  type: ClusterIP

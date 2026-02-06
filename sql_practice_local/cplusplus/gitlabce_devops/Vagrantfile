@@ -1,0 +1,93 @@
+# Vagrantfile for GitLab CE DevOps Server
+# Complete local DevOps platform: Git hosting, CI/CD, Container Registry
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+
+  # Create a shared folder for projects
+  config.vm.synced_folder "../", "/home/vagrant/projects"
+
+  # Network configuration
+  config.vm.network "forwarded_port", guest: 80, host: 9090  # GitLab Web UI (use 9090 to avoid conflict)
+  config.vm.network "forwarded_port", guest: 5050, host: 5051  # Container Registry
+  config.vm.network "forwarded_port", guest: 2222, host: 2223  # Git SSH (optional)
+
+  # Provider-specific configuration
+  config.vm.provider "virtualbox" do |vb|
+    # Memory
+    vb.memory = "10240"  # 10GB RAM
+
+    # CPUs
+    vb.cpus = 4
+
+    # Enable DNS proxy for faster internet
+    vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+
+    # Improve performance
+    vb.customize ["modifyvm", :id, "--vram", "256"]
+  end
+
+  # Provision the VM
+  config.vm.provision "shell", inline: <<-SHELL
+    # Update system
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+
+    # Install essential tools
+    apt-get install -y curl wget vim git openssh-server ca-certificates tzdata perl
+
+    # Install Docker (for container registry usage)
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sh get-docker.sh
+    usermod -aG docker vagrant
+
+    # Install Docker Compose
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-Linux-x86_64" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+
+    # Create project directory
+    mkdir -p /vagrant
+
+    echo "=========================================="
+    echo "GitLab CE VM Provisioned!"
+    echo "=========================================="
+    echo "RAM: 10GB"
+    echo "CPUs: 4"
+    echo "Disk: Default (20GB)"
+    echo ""
+    echo "Next steps:"
+    echo "1. vagrant ssh"
+    echo "2. cd /vagrant"
+    echo "3. bash devops-setup.sh"
+    echo ""
+    echo "Or download GitLab manually:"
+    echo "wget https://packages.gitlab.com/gitlab/gitlab-ce/apt/pool/main/g/gitlab-ce/gitlab-ce_17.5.0-ce.0_amd64.deb"
+    echo "sudo dpkg -i gitlab-ce_17.5.0-ce.0_amd64.deb"
+    echo ""
+    echo "Note: GitLab will be configured for port 9090"
+  SHELL
+
+  # Show message after VM is up
+  config.vm.post_up_message = <<-MESSAGE
+    ==========================================
+    GitLab CE DevOps VM is Ready!
+    ==========================================
+
+    Access:
+      GitLab:     http://localhost:8080
+      Registry:   http://localhost:5050
+
+    SSH: vagrant ssh
+
+    Setup:
+      vagrant ssh
+      cd /vagrant
+      bash devops-setup.sh
+
+    Resources:
+      RAM:  10GB
+      CPUs: 4 cores
+      Disk: 50GB
+    ==========================================
+  MESSAGE
+end

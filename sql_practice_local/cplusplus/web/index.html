@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Practice - Master SQL Through Practice</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <path d="M16 4L4 10V22L16 28L28 22V10L16 4Z" stroke="currentColor" stroke-width="2" fill="none"/>
+                    <path d="M16 12L12 14M16 16L12 18M16 20L12 22" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <span>SQL Practice</span>
+            </div>
+            <nav class="nav">
+                <a href="#" class="nav-link active">Problems</a>
+                <a href="#" class="nav-link">Interviews</a>
+                <a href="#" class="nav-link">Contests</a>
+            </nav>
+            <div class="user-section">
+                <button class="btn-secondary" onclick="showLogin()">Login</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Sidebar - Question List -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2>SQL Problems</h2>
+                    <div class="filters">
+                        <select id="difficulty-filter" class="filter-select">
+                            <option value="">All Difficulties</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                        <select id="category-filter" class="filter-select">
+                            <option value="">All Categories</option>
+                            <option value="sql">SQL</option>
+                            <option value="advanced">Advanced SQL</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="question-list" id="question-list">
+                    <div class="loading">Loading questions...</div>
+                </div>
+            </aside>
+
+            <!-- Problem Area -->
+            <section class="problem-area">
+                <!-- Question Header -->
+                <div class="question-header" id="question-header">
+                    <div class="question-badges">
+                        <span class="badge difficulty-medium" id="difficulty-badge">Medium</span>
+                        <span class="badge category-sql" id="category-badge">SQL</span>
+                    </div>
+                    <h1 id="question-title">Select a Question</h1>
+                    <p id="question-description">Choose a question from the sidebar to start practicing.</p>
+                </div>
+
+                <!-- Schema Viewer -->
+                <div class="schema-panel" id="schema-panel" style="display:none;">
+                    <h3>📊 Database Schema</h3>
+                    <div class="schema-content" id="schema-content">
+                        <!-- Schema will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- SQL Editor -->
+                <div class="editor-section">
+                    <div class="editor-header">
+                        <h3>SQL Editor</h3>
+                        <div class="editor-actions">
+                            <button class="btn-secondary" onclick="resetEditor()">Reset</button>
+                            <button class="btn-primary" onclick="runSQL()">▶ Run Code</button>
+                        </div>
+                    </div>
+                    <div class="editor-wrapper">
+                        <textarea id="sql-editor"></textarea>
+                    </div>
+                    <div class="hints-section" id="hints-section" style="display:none;">
+                        <h4>💡 Hints</h4>
+                        <ul id="hints-list"></ul>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div class="results-section" id="results-section" style="display:none;">
+                    <div class="results-header">
+                        <h3>Results</h3>
+                        <div class="results-stats" id="results-stats"></div>
+                    </div>
+                    <div class="results-table-wrapper" id="results-table-wrapper">
+                        <table class="results-table" id="results-table">
+                            <thead id="results-thead"></thead>
+                            <tbody id="results-tbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="results-message" id="results-message"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal" id="login-modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Login</h2>
+                <button class="close-btn" onclick="closeLogin()">×</button>
+            </div>
+            <form class="login-form" onsubmit="handleLogin(event)">
+                <input type="text" id="username" placeholder="Username" required>
+                <button type="submit" class="btn-primary full-width">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/sql/sql.min.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>

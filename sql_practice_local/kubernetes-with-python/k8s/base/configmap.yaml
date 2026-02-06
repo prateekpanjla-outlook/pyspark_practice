@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: sql-practice
+data:
+  DATABASE_HOST: postgres
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: sql_practice
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  SQL_ENGINE_URL: http://sql-engine:8001
+  QUERY_TIMEOUT: "30"
+  MAX_CONTAINERS: "10"
+  MEMORY_LIMIT: 512m
+  CPU_LIMIT: "0.5"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: sql-practice
+type: Opaque
+stringData:
+  DATABASE_USER: sqlpractice
+  DATABASE_PASSWORD: sqlpractice123
+  JWT_SECRET: dev-secret-key-change-in-production
