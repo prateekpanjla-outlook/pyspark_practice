@@ -30,7 +30,7 @@ static const QuestionDef question_1 = {
     },
     {
         {
-            "employees",
+            "Employee",
             {
                 {"id", "INTEGER"},
                 {"name", "VARCHAR"},
@@ -40,7 +40,7 @@ static const QuestionDef question_1 = {
         }
     },
     {
-        {"employees", {
+        {"Employee", {
             {{"id", "1"}, {"name", "Alice"}, {"salary", "100000"}, {"department_id", "1"}},
             {{"id", "2"}, {"name", "Bob"}, {"salary", "90000"}, {"department_id", "2"}},
             {{"id", "3"}, {"name", "Charlie"}, {"salary", "120000"}, {"department_id", "1"}},
@@ -72,7 +72,7 @@ static const QuestionDef question_2 = {
     },
     {
         {
-            "person",
+            "Person",
             {
                 {"id", "INTEGER"},
                 {"email", "VARCHAR"}
@@ -80,7 +80,7 @@ static const QuestionDef question_2 = {
         }
     },
     {
-        {"person", {
+        {"Person", {
             {{"id", "1"}, {"email", "alice@example.com"}},
             {{"id", "2"}, {"email", "bob@example.com"}},
             {{"id", "3"}, {"email", "alice@example.com"}},
@@ -349,7 +349,7 @@ static const QuestionDef question_8 = {
     },
     {
         {
-            "logs",
+            "Logs",
             {
                 {"id", "INTEGER"},
                 {"num", "INTEGER"}
@@ -357,7 +357,7 @@ static const QuestionDef question_8 = {
         }
     },
     {
-        {"logs", {
+        {"Logs", {
             {{"id", "1"}, {"num", "1"}},
             {{"id", "2"}, {"num", "1"}},
             {{"id", "3"}, {"num", "1"}},

@@ -166,7 +166,7 @@ function formatSchema(schema, sampleData) {
                             <tbody>
                                 ${sampleRows.map(row => `
                                     <tr>
-                                        ${table.columns.map(col => `<td>${row[col] || 'NULL'}</td>`).join('')}
+                                        ${table.columns.map(col => `<td>${row[col.name] || 'NULL'}</td>`).join('')}
                                     </tr>
                                 `).join('')}
                             </tbody>

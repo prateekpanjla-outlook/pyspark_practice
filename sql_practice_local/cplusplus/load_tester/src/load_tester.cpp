@@ -20,21 +20,21 @@ LoadTester::LoadTester(const std::string& url, int users)
 
 void LoadTester::init_test_cases() {
     // Test cases with wrong and correct SQL solutions
-    // Note: Table names are lowercase (employees, person, logs, etc.) per the schema
+    // Note: Table names are capitalized (Employee, Person, Logs) to match expected solutions
     test_cases = {
         TestCase("q1", "Second Highest Salary",
-            "SELECT MAX(salary) FROM employees",  // Wrong - gets highest
-            "SELECT MAX(salary) AS SecondHighestSalary FROM employees WHERE salary < (SELECT MAX(salary) FROM employees)"),
+            "SELECT MAX(salary) FROM Employee",  // Wrong - gets highest
+            "SELECT MAX(salary) AS SecondHighestSalary FROM Employee WHERE salary < (SELECT MAX(salary) FROM Employee)"),
 
         TestCase("q2", "Duplicate Emails",
-            "SELECT email FROM person",  // Wrong - returns all emails
-            "SELECT email FROM person GROUP BY email HAVING COUNT(*) > 1"),
+            "SELECT email FROM Person",  // Wrong - returns all emails
+            "SELECT email FROM Person GROUP BY email HAVING COUNT(*) > 1"),
 
         TestCase("q8", "Consecutive Numbers",
-            "SELECT DISTINCT num FROM logs",  // Wrong - just distinct numbers
-            "SELECT DISTINCT l1.num AS consecutive_numbers FROM logs l1 "
-            "JOIN logs l2 ON l1.id = l2.id - 1 AND l1.num = l2.num "
-            "JOIN logs l3 ON l1.id = l3.id - 2 AND l1.num = l3.num")
+            "SELECT DISTINCT num FROM Logs",  // Wrong - just distinct numbers
+            "SELECT DISTINCT l1.num AS consecutive_numbers FROM Logs l1 "
+            "JOIN Logs l2 ON l1.id = l2.id - 1 AND l1.num = l2.num "
+            "JOIN Logs l3 ON l1.id = l3.id - 2 AND l1.num = l3.num")
     };
 
     // For now, just test with 3 questions that we know work

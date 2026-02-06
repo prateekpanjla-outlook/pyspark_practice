@@ -101,9 +101,9 @@ public:
             // Return response with session token
             std::stringstream json;
             json << "{"
-                 << "\"is_correct\":true,"
-                 << "\"error\":\"\","
-                 << "\"session_token\":\"" << session_token << "\""
+                 << "\"success\":true,"
+                 << "\"session_token\":\"" << session_token << "\","
+                 << "\"user_id\":\"" << user_id << "\""
                  << "}";
 
             auto dto = oatpp::String(json.str());

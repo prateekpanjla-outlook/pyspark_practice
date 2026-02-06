@@ -8,6 +8,31 @@
 namespace sql_practice {
 
 // =============================================================================
+// TODO: Shared DuckDB Instance Architecture
+// =============================================================================
+// Current Issue: Each session creates its own DuckDB instance (~24MB virtual memory each)
+// With 1000 sessions = 24GB+ virtual memory (though actual RSS is much lower)
+//
+// Proposed Architecture:
+// - Create N shared DuckDB instances (where N = total_sessions / connections_per_instance)
+// - Each session gets a Connection to one of the shared instances
+// - DuckDB can handle many concurrent connections per instance
+//
+// Example calculation:
+// - Target: 10,000 concurrent users
+// - Connections per DuckDB instance: ~100-1000 (DuckDB is quite efficient)
+// - Number of instances needed: 10,000 / 500 = 20 instances
+// - Memory per instance: ~24MB virtual
+// - Total virtual memory: 20 * 24MB = 480MB (vs 240GB for separate instances)
+//
+// Implementation approach:
+// 1. Create a connection pool that manages multiple DuckDB instances
+// 2. Each session gets assigned a connection from the pool
+// 3. Connections are returned to pool when session expires
+// 4. Use round-robin or least-loaded assignment
+// =============================================================================
+
+// =============================================================================
 // DuckDBConnection Implementation
 // =============================================================================
 

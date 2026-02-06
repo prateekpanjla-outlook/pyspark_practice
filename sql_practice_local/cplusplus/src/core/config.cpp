@@ -13,6 +13,35 @@ int server_port = 8080;
 int thread_pool_size = 32;
 std::string log_level = "info";
 
+// =============================================================================
+// TODO: Shared DuckDB Instance Architecture
+// =============================================================================
+// Current Issue: Each session creates its own DuckDB instance (~24MB virtual memory each)
+// With 1000 sessions = 24GB+ virtual memory (though actual RSS is much lower)
+//
+// Proposed Architecture:
+// - Create N shared DuckDB instances (where N = total_sessions / CONNECTIONS_PER_INSTANCE)
+// - Each session gets a Connection to one of the shared instances
+// - DuckDB can handle many concurrent connections per instance
+//
+// Configurable constant for connections per DuckDB instance
+// Adjust based on benchmarking: test values 100, 250, 500, 1000
+// To determine optimal value: Measure response time, CPU, memory, errors
+constexpr int CONNECTIONS_PER_INSTANCE = 500;
+//
+// Example calculation:
+// - Target: 10,000 concurrent users
+// - Connections per instance: 500
+// - Instances needed: 10,000 / 500 = 20 instances
+// - Memory: 20 * 24MB = 480MB virtual (vs 240GB for separate instances)
+//
+// Implementation approach:
+// 1. Create connection pool managing multiple DuckDB instances
+// 2. Assign each session a connection from the pool (round-robin)
+// 3. Return connections to pool when session expires
+// 4. Use CONNECTIONS_PER_INSTANCE to calculate pool size
+// =============================================================================
+
 // Load from environment or config file
 void load_config(const std::string& config_file) {
     // Load from environment variables
