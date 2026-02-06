@@ -7,10 +7,13 @@
 #include <oatpp/web/protocol/http/Http.hpp>
 #include <oatpp/core/Types.hpp>
 #include <oatpp/network/tcp/server/ConnectionProvider.hpp>
+#include <nlohmann/json.hpp>
 #include <sstream>
 #include <iostream>
 #include <functional>
 #include <fstream>
+
+using json = nlohmann::json;
 
 namespace sql_practice {
 
@@ -143,20 +146,24 @@ public:
                 );
             }
 
-            std::string body = body_str->c_str();
-
-            // Parse session_token
-            std::string session_token;
-            size_t token_pos = body.find("\"session_token\":");
-            if (token_pos != std::string::npos) {
-                size_t start = body.find("\"", token_pos + 17);
-                size_t end = body.find("\"", start + 1);
-                if (start != std::string::npos && end != std::string::npos) {
-                    session_token = body.substr(start + 1, end - start - 1);
-                }
+            // Parse JSON using nlohmann/json
+            json request_json;
+            try {
+                request_json = json::parse(body_str->c_str());
+            } catch (const json::parse_error& e) {
+                auto dto = oatpp::String("{\"is_correct\":false,\"error\":\"Invalid JSON\"}");
+                return oatpp::web::protocol::http::outgoing::ResponseFactory::createResponse(
+                    oatpp::web::protocol::http::Status::CODE_400, dto
+                );
             }
 
-            // Validate session
+            // Extract fields
+            std::string session_token = request_json.value("session_token", "");
+            std::string user_sql = request_json.value("user_sql", "");
+            std::string question_id = request_json.value("question_id", "");
+            std::string question_slug = request_json.value("question_slug", "");
+
+            // Validate session token
             if (session_token.empty()) {
                 auto dto = oatpp::String("{\"is_correct\":false,\"error\":\"session_token is required\"}");
                 return oatpp::web::protocol::http::outgoing::ResponseFactory::createResponse(
@@ -164,6 +171,7 @@ public:
                 );
             }
 
+            // Get session
             auto session = session_manager->get_session(session_token);
             if (!session || session->is_expired()) {
                 auto dto = oatpp::String("{\"is_correct\":false,\"error\":\"Invalid or expired session\"}");
@@ -176,45 +184,8 @@ public:
             session->update_activity();
             session->query_count++;
 
-            // Parse user_sql
-            std::string user_sql;
-            size_t sql_pos = body.find("\"user_sql\":");
-            if (sql_pos != std::string::npos) {
-                size_t start = body.find("\"", sql_pos + 12);
-                size_t end = body.find("\"", start + 1);
-                if (start != std::string::npos && end != std::string::npos) {
-                    std::string sql_escaped = body.substr(start + 1, end - start - 1);
-                    // Unescape JSON string (simple version)
-                    user_sql = sql_escaped;
-                    // Replace escaped quotes
-                    size_t pos = 0;
-                    while ((pos = user_sql.find("\\\"", pos)) != std::string::npos) {
-                        user_sql.replace(pos, 2, "\"");
-                    }
-                }
-            }
-
-            // Parse question_id (for result comparison and schema initialization)
-            std::string question_id;
-            size_t qid_pos = body.find("\"question_id\":");
-            if (qid_pos != std::string::npos) {
-                size_t start = body.find("\"", qid_pos + 14);
-                size_t end = body.find("\"", start + 1);
-                if (start != std::string::npos && end != std::string::npos) {
-                    question_id = body.substr(start + 1, end - start - 1);
-                }
-            }
-
-            // Also parse question_slug as alternative to question_id
-            std::string question_slug;
-            size_t slug_pos = body.find("\"question_slug\":");
-            if (slug_pos != std::string::npos) {
-                size_t start = body.find("\"", slug_pos + 17);
-                size_t end = body.find("\"", start + 1);
-                if (start != std::string::npos && end != std::string::npos) {
-                    question_slug = body.substr(start + 1, end - start - 1);
-                }
-                // Convert slug to question_id
+            // Convert question_slug to question_id if needed
+            if (!question_slug.empty()) {
                 if (!question_slug.empty()) {
                     auto q = question_loader->get_question_by_slug(question_slug);
                     if (q) {
