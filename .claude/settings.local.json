@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for:*)",
+      "Bash(do echo \"=== $dir ===\")",
+      "Bash(git -C \"$dir\" remote -v)",
+      "Bash(done)",
+      "Bash(do echo:*)",
+      "Bash(python questions/embed_questions.py:*)",
+      "Bash(docker build:*)",
+      "Bash(unzip:*)",
+      "Bash(vagrant up:*)",
+      "Bash(vagrant ssh:*)",
+      "Bash(cmake:*)",
+      "Bash(vagrant status:*)",
+      "Bash(vagrant global-status:*)",
+      "Bash(timeout:*)",
+      "Bash(VBoxManage:*)",
+      "Bash(curl:*)",
+      "Bash(vagrant halt:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Bash(python:*)",
+      "Bash(curl.exe:*)",
+      "Bash(git checkout:*)"
+    ]
+  }
+}

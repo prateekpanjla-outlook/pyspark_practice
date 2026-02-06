@@ -79,6 +79,7 @@ set(SOURCES
     src/main.cpp
     src/core/session_manager.cpp
     src/core/config.cpp
+    src/core/duckdb_instance_manager.cpp
     src/db/duckdb_executor.cpp
     src/db/question_loader.cpp
     src/db/embedded_questions.cpp
@@ -91,6 +92,8 @@ set(HEADERS
     src/include/sql_executor.hpp
     src/include/question_loader.hpp
     src/include/http_server.hpp
+    src/include/duckdb_instance_manager.hpp
+    src/include/config.hpp
 )
 
 # Create executable

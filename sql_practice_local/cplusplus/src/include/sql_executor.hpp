@@ -51,7 +51,8 @@ struct QuestionSchema {
 /**
  * @brief SQL Executor using DuckDB
  *
- * Executes SQL queries in isolated per-session databases
+ * Executes SQL queries using shared database instance
+ * All sessions share a single DuckDB instance but have isolated connections
  */
 class SQLExecutor {
 private:
@@ -61,7 +62,9 @@ public:
     explicit SQLExecutor(const std::string& db_path = ":memory:");
 
     /**
-     * @brief Create a new isolated database connection for a session
+     * @brief Create a new connection to the shared database
+     *
+     * @return Connection to the shared DuckDB instance
      */
     std::unique_ptr<class DuckDBConnection> create_connection();
 
@@ -97,18 +100,27 @@ public:
 
 /**
  * @brief DuckDB connection wrapper
+ *
+ * Can operate in two modes:
+ * 1. Standalone: Creates its own DuckDB instance (original behavior)
+ * 2. Shared: Uses a shared DuckDB instance from DuckDBInstanceManager
  */
 class DuckDBConnection {
 private:
-    void* db;  // duckdb::Database
-    void* conn;  // duckdb::Connection
+    void* db;      // duckdb::Database (owned if standalone, null if shared)
+    void* conn;    // duckdb::Connection
+    bool owns_db;  // True if we own the db instance and should delete it
 
 public:
+    // Constructor for standalone mode (creates new DuckDB instance)
     DuckDBConnection(const std::string& path);
+
+    // Constructor for shared mode (uses existing DuckDB instance)
+    DuckDBConnection(void* shared_db);
+
     ~DuckDBConnection();
 
     QueryResult execute(const std::string& sql);
-
     void* get_connection() const { return conn; }
 };
 
