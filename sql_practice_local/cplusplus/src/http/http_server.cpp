@@ -461,8 +461,42 @@ public:
              << "\"description\":\"" << q.description << "\","
              << "\"difficulty\":\"" << q.question_difficulty << "\","
              << "\"category\":\"" << q.category << "\","
-             << "\"starter_code\":\"" << q.starter_code << "\""
-             << "}";
+             << "\"starter_code\":\"" << q.starter_code << "\","
+             << "\"schema\":[";
+
+        // Add schema tables
+        for (size_t i = 0; i < q.schema.tables.size(); ++i) {
+            const auto& table = q.schema.tables[i];
+            json << "{\"name\":\"" << table.name << "\",\"columns\":[";
+            for (size_t j = 0; j < table.columns.size(); ++j) {
+                json << "{\"name\":\"" << table.columns[j].name << "\",\"type\":\"" << table.columns[j].type << "\"}";
+                if (j < table.columns.size() - 1) json << ",";
+            }
+            json << "]}";
+            if (i < q.schema.tables.size() - 1) json << ",";
+        }
+        json << "],\"sample_data\":{";
+
+        // Add sample data
+        bool first_table = true;
+        for (const auto& [table_name, rows] : q.schema.sample_data) {
+            if (!first_table) json << ",";
+            first_table = false;
+            json << "\"" << table_name << "\":[";
+            for (size_t i = 0; i < rows.size(); ++i) {
+                json << "{";
+                bool first_col = true;
+                for (const auto& [col_name, col_value] : rows[i]) {
+                    if (!first_col) json << ",";
+                    first_col = false;
+                    json << "\"" << col_name << "\":\"" << col_value << "\"";
+                }
+                json << "}";
+                if (i < rows.size() - 1) json << ",";
+            }
+            json << "]";
+        }
+        json << "}}";
 
         auto dto = oatpp::String(json.str());
         return oatpp::web::protocol::http::outgoing::ResponseFactory::createResponse(
