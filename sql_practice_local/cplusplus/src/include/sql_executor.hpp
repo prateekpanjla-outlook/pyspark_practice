@@ -116,18 +116,20 @@ private:
     void* db;      // duckdb::Database (owned if standalone, null if shared)
     void* conn;    // duckdb::Connection
     bool owns_db;  // True if we own the db instance and should delete it
+    size_t instance_index_;  // Which DuckDB instance this connection belongs to (for telemetry)
 
 public:
     // Constructor for standalone mode (creates new DuckDB instance)
     DuckDBConnection(const std::string& path);
 
     // Constructor for shared mode (uses existing DuckDB instance)
-    DuckDBConnection(void* shared_db);
+    DuckDBConnection(void* shared_db, size_t idx = 0);
 
     ~DuckDBConnection();
 
     QueryResult execute(const std::string& sql);
     void* get_connection() const { return conn; }
+    size_t get_instance_index() const { return instance_index_; }
 };
 
 } // namespace sql_practice

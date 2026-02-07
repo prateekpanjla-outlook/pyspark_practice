@@ -6,6 +6,7 @@
 #include "include/sql_executor.hpp"
 #include "include/question_loader.hpp"
 #include "include/http_server.hpp"
+#include "include/duckdb_instance_manager.hpp"
 
 #include <iostream>
 #include <csignal>
@@ -20,6 +21,29 @@ std::shared_ptr<HTTPServer> server;
 std::shared_ptr<SessionManager> session_manager;
 std::shared_ptr<QuestionLoader> question_loader;
 std::atomic<bool> running(true);
+std::chrono::steady_clock::time_point start_time;
+
+/**
+ * @brief Server timeout checker - exits after 10 minutes
+ *
+ * Checks every second if server has been running for 10 minutes
+ */
+void timeout_checker() {
+    const auto TIMEOUT_DURATION = std::chrono::minutes(10);
+    while (running.load()) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        auto elapsed = std::chrono::steady_clock::now() - start_time;
+        if (elapsed >= TIMEOUT_DURATION) {
+            std::cout << "⏰ Server timeout reached (10 minutes). Shutting down..." << std::endl;
+            running.store(false);
+            if (server) {
+                server->stop();
+            }
+            break;
+        }
+    }
+}
 
 /**
  * @brief Cleanup session worker thread
@@ -42,11 +66,14 @@ void cleanup_worker() {
 
 /**
  * @brief Signal handler for graceful shutdown
+ * NOTE: Keep minimal - only set flag and stop server (async-signal-safe)
+ * Don't use std::cout or mutexes here!
  */
 void signal_handler(int signal) {
-    std::cout << "\n🛑 Received signal " << signal << ", shutting down..." << std::endl;
+    // Set flag for main loop to check
     running.store(false);
 
+    // Stop the server (this should be async-signal-safe)
     if (server) {
         server->stop();
     }
@@ -132,6 +159,11 @@ int main(int argc, char** argv) {
         std::signal(SIGINT, signal_handler);
         std::signal(SIGTERM, signal_handler);
 
+        // Record start time and start timeout checker (10 minute auto-shutdown)
+        start_time = std::chrono::steady_clock::now();
+        std::thread timeout_thread(timeout_checker);
+        timeout_thread.detach();
+
         // Start cleanup worker thread
         std::thread cleanup_thread(cleanup_worker);
         cleanup_thread.detach();
@@ -146,6 +178,9 @@ int main(int argc, char** argv) {
         // Cleanup on shutdown
         std::cout << "🧹 Cleaning up..." << std::endl;
         running.store(false);
+
+        // Print telemetry before shutting down
+        DuckDBInstanceManager::get().shutdown();
 
     } catch (const std::exception& e) {
         std::cerr << "❌ Fatal error: " << e.what() << std::endl;

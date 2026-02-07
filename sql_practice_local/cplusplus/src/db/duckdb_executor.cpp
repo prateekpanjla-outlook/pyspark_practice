@@ -11,28 +11,29 @@
 namespace sql_practice {
 
 // =============================================================================
-// Shared DuckDB Instance Architecture (IMPLEMENTED)
+// Multi-Instance DuckDB Architecture (IMPLEMENTED)
 // =============================================================================
 //
-// Solution: Single shared DuckDB instance for all sessions
-// - DuckDBInstanceManager holds a single shared DuckDB instance
-// - Each session creates its own Connection to the shared instance
-// - DuckDB efficiently handles many concurrent connections
+// Solution: Multiple DuckDB instances with round-robin session assignment
+// - DuckDBInstanceManager holds N separate DuckDB instances (default: 8)
+// - Each session gets assigned to an instance via round-robin
+// - True parallelism: N queries can execute simultaneously (one per instance)
 //
-// Memory Savings:
-// - Before: 1000 sessions × 24MB = ~24GB virtual memory
-// - After:  1 shared instance (24MB) + 1000 connections (~1KB each) = ~25MB total
-// - Improvement: ~1000x reduction in virtual memory usage
+// Memory:
+// - 8 instances: ~200MB (8 × 25MB)
+// - Each session has lightweight Connection object (~1KB)
+// - Trade-off: More memory but eliminates query contention
 //
 // Implementation:
-// 1. DuckDBInstanceManager - Singleton that manages the shared database
-// 2. DuckDBConnection - Two constructors: standalone and shared mode
-// 3. SQLExecutor::create_connection() - Creates connections to shared DB
-// 4. DuckDB connections are thread-safe for concurrent queries
+// 1. DuckDBInstanceManager - Singleton that manages N database instances
+// 2. Round-robin assignment: Atomic counter distributes sessions across instances
+// 3. SQLExecutor::create_connection() - Uses get_instance() for round-robin
+// 4. SQLExecutor::initialize_all_schemas() - Initializes schemas on ALL instances
 //
-// Future Enhancement:
-// - For even larger scale (10K+ users), could implement connection pooling
-// - with multiple shared instances based on CONNECTIONS_PER_INSTANCE
+// Performance Benefit:
+// - Eliminates single-threaded DuckDB bottleneck
+// - N concurrent SQL queries can execute in parallel (one per instance)
+// - Expected 5-8x throughput improvement for concurrent loads
 // =============================================================================
 
 // =============================================================================
@@ -62,7 +63,7 @@ DuckDBConnection::DuckDBConnection(const std::string& path) : owns_db(true) {
 }
 
 // Constructor for shared mode (uses existing DuckDB instance)
-DuckDBConnection::DuckDBConnection(void* shared_db) : owns_db(false) {
+DuckDBConnection::DuckDBConnection(void* shared_db, size_t idx) : owns_db(false), instance_index_(idx) {
     try {
         db = shared_db;  // Don't own this, won't delete it
         if (shared_db) {
@@ -146,6 +147,9 @@ QueryResult DuckDBConnection::execute(const std::string& sql) {
             std::chrono::high_resolution_clock::now() - start
         ).count();
 
+        // Record query execution for telemetry
+        DuckDBInstanceManager::get().record_query(instance_index_);
+
     } catch (const std::exception& e) {
         result.success = false;
         result.error_message = e.what();
@@ -174,10 +178,12 @@ std::unique_ptr<DuckDBConnection> SQLExecutor::create_connection() {
         manager.initialize(":memory:");
     }
 
-    auto* shared_db = manager.get_shared_db();
+    // Use round-robin assignment to distribute sessions across instances
+    size_t instance_idx = 0;
+    auto* db_instance = manager.get_instance(&instance_idx);
 
-    // Create a connection to the shared database
-    return std::make_unique<DuckDBConnection>(shared_db);
+    // Create a connection to the assigned database instance (pass instance index for telemetry)
+    return std::make_unique<DuckDBConnection>(db_instance, instance_idx);
 }
 
 bool SQLExecutor::initialize_schema(
@@ -294,14 +300,8 @@ bool SQLExecutor::initialize_all_schemas(QuestionLoader* loader) {
 
         // Initialize schemas for ALL instances
         for (size_t inst_idx = 0; inst_idx < manager.get_instance_count(); ++inst_idx) {
-            auto* db_instance = [&]() -> duckdb::DuckDB* {
-                // Temporarily set index to get specific instance
-                auto& mgr = const_cast<DuckDBInstanceManager&>(manager);
-                for (size_t i = 0; i < inst_idx; ++i) {
-                    mgr.get_instance();  // Skip ahead
-                }
-                return mgr.get_instance();
-            }();
+            // Get specific instance by index (for initialization only)
+            auto* db_instance = manager.get_instance_by_index(inst_idx);
 
             if (!db_instance) {
                 std::cerr << "Failed to get DuckDB instance " << inst_idx << std::endl;

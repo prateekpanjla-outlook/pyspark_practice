@@ -12,18 +12,20 @@ namespace sql_practice {
 /**
  * @brief Manages multiple DuckDB database instances for parallel query execution
  *
- * Architecture: Multiple separate DuckDB instances (each single-threaded)
- * - Each Oat++ worker thread gets its own DuckDB instance
- * - True parallelism: Multiple queries can execute simultaneously on different DB instances
- * - Trade-off: N× memory usage but eliminates query contention
+ * Architecture: Multiple separate DuckDB instances with round-robin session assignment
+ * - N independent DuckDB instances (default: 8), each single-threaded
+ * - Sessions assigned via round-robin using atomic counter
+ * - True parallelism: N queries can execute simultaneously (one per instance)
  *
  * Memory:
  * - 8 instances: ~200MB (8 × 25MB)
- * - Each session has lightweight Connection object
+ * - Each session has lightweight Connection object (~1KB)
+ * - Trade-off: More memory but eliminates query contention
  *
  * Performance benefit:
  * - Eliminates single-threaded DuckDB bottleneck
  * - N concurrent SQL queries can execute in parallel
+ * - Expected 5-8x throughput improvement for concurrent loads
  */
 class DuckDBInstanceManager {
 private:
@@ -39,8 +41,12 @@ private:
     // Round-robin counter for session assignment
     std::atomic<size_t> next_instance_index_{0};
 
-    // Mutex for round-robin assignment
-    std::atomic<size_t> assignment_lock_{0};
+    // Telemetry: Per-instance connection and query counts (protected by telemetry_mutex_)
+    std::vector<size_t> connection_counts_;
+    std::vector<size_t> query_counts_;
+    size_t total_get_instance_calls_{0};
+    size_t total_get_instance_ns_{0};
+    std::mutex telemetry_mutex_;
 
     // Private constructor for singleton
     DuckDBInstanceManager();
@@ -65,9 +71,10 @@ public:
 
     /**
      * @brief Get a DuckDB instance using round-robin assignment
+     * @param out_index Optional output parameter to receive the instance index
      * @return Pointer to duckdb::DuckDB or nullptr if not initialized
      */
-    duckdb::DuckDB* get_instance();
+    duckdb::DuckDB* get_instance(size_t* out_index = nullptr);
 
     /**
      * @brief Get a specific DuckDB instance by index
@@ -96,6 +103,17 @@ public:
      * @brief Shutdown and cleanup all instances
      */
     void shutdown();
+
+    /**
+     * @brief Print telemetry statistics
+     */
+    void print_telemetry();
+
+    /**
+     * @brief Record a query execution on an instance
+     * @param instance_index The instance that handled the query
+     */
+    void record_query(size_t instance_index);
 };
 
 } // namespace sql_practice
