@@ -1,10 +1,12 @@
 #include "include/sql_executor.hpp"
 #include "include/duckdb_instance_manager.hpp"
+#include "include/question_loader.hpp"
 #include <duckdb.hpp>
 #include <chrono>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <iostream>
 
 namespace sql_practice {
 
@@ -185,10 +187,10 @@ bool SQLExecutor::initialize_schema(
     if (!conn) return false;
 
     try {
-        // Create tables
+        // Create tables (use IF NOT EXISTS to handle concurrent initialization)
         for (const auto& table : schema.tables) {
             std::stringstream sql;
-            sql << "CREATE TABLE " << table.name << " (";
+            sql << "CREATE TABLE IF NOT EXISTS " << table.name << " (";
 
             for (size_t i = 0; i < table.columns.size(); ++i) {
                 const auto& col = table.columns[i];
@@ -204,9 +206,24 @@ bool SQLExecutor::initialize_schema(
                 return false;
             }
 
-            // Insert sample data
+            // Insert sample data only if table is empty (to avoid duplicate inserts from concurrent requests)
             auto it = schema.sample_data.find(table.name);
             if (it != schema.sample_data.end()) {
+                // Check if table already has data
+                std::stringstream count_sql;
+                count_sql << "SELECT COUNT(*) FROM " << table.name << ";";
+                auto count_result = conn->execute(count_sql.str());
+
+                // Only insert if table is empty (count = 0)
+                if (count_result.success && count_result.rows.size() > 0) {
+                    std::string count_str = count_result.rows[0].begin()->second;
+                    int count = std::stoi(count_str);
+                    if (count > 0) {
+                        // Table already has data, skip insertion
+                        continue;
+                    }
+                }
+
                 for (const auto& row : it->second) {
                     std::stringstream insert_sql;
                     insert_sql << "INSERT INTO " << table.name << " VALUES (";
@@ -248,6 +265,59 @@ bool SQLExecutor::initialize_schema(
         return true;
 
     } catch (const std::exception& e) {
+        return false;
+    }
+}
+
+// =============================================================================
+// Global Schema Initialization (Called once at server startup)
+// =============================================================================
+
+bool SQLExecutor::initialize_all_schemas(QuestionLoader* loader) {
+    try {
+        // Get the shared database instance
+        auto& manager = DuckDBInstanceManager::get();
+
+        // Initialize the shared database if not already initialized
+        if (!manager.is_initialized()) {
+            if (!manager.initialize(":memory:")) {
+                std::cerr << "Failed to initialize shared DuckDB instance" << std::endl;
+                return false;
+            }
+        }
+
+        // Create a connection for schema initialization
+        auto* shared_db = manager.get_shared_db();
+        if (!shared_db) {
+            std::cerr << "Shared database instance is null" << std::endl;
+            return false;
+        }
+
+        DuckDBConnection conn(shared_db);
+
+        // Get all questions from the question loader
+        auto questions = loader->list_questions();
+
+        std::cout << "Initializing " << questions.size() << " question schemas..." << std::endl;
+
+        // Initialize schema for each question
+        for (const auto& question : questions) {
+            SQLExecutor executor;
+            bool initialized = executor.initialize_schema(&conn, question.schema);
+
+            if (!initialized) {
+                std::cerr << "Failed to initialize schema for question: " << question.id << std::endl;
+                return false;
+            }
+
+            std::cout << "  ✓ Initialized schema for: " << question.title << " (" << question.id << ")" << std::endl;
+        }
+
+        std::cout << "All question schemas initialized successfully!" << std::endl;
+        return true;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Exception during schema initialization: " << e.what() << std::endl;
         return false;
     }
 }

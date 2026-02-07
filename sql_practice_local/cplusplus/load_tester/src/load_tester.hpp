@@ -7,6 +7,10 @@
 #include <chrono>
 #include <atomic>
 #include <mutex>
+#include <algorithm>
+#include <cstdint>
+#include <climits>
+#include <curl/curl.h>
 
 namespace load_test {
 
@@ -30,11 +34,12 @@ struct TestCase {
  */
 struct TestResult {
     bool success;
-    int64_t response_time_ms;
+    bool timeout;  // True if request timed out
+    long long response_time_ms;
     std::string error_message;
     bool is_correct;
 
-    TestResult() : success(false), response_time_ms(0), is_correct(false) {}
+    TestResult() : success(false), timeout(false), response_time_ms(0), is_correct(false) {}
 };
 
 /**
@@ -44,11 +49,17 @@ struct LoadTestStats {
     std::atomic<int> total_attempts{0};
     std::atomic<int> successful_attempts{0};
     std::atomic<int> failed_attempts{0};
+    std::atomic<int> timeouts{0};  // Requests that timed out
+    std::atomic<int> other_failures{0};  // Other failures (not timeouts)
     std::atomic<int> correct_answers{0};
     std::atomic<int> wrong_answers{0};
-    std::atomic<int64_t> total_response_time{0};
-    std::atomic<int64_t> min_response_time{INT64_MAX};
-    std::atomic<int64_t> max_response_time{0};
+    std::atomic<long long> total_response_time{0};
+    std::atomic<long long> min_response_time{LLONG_MAX};
+    std::atomic<long long> max_response_time{0};
+
+    // Thread-safe storage for response times (for percentile calculation)
+    std::vector<long long> response_times;
+    std::mutex response_times_mutex;
 
     void record_attempt(const TestResult& result) {
         total_attempts++;
@@ -56,15 +67,26 @@ struct LoadTestStats {
             successful_attempts++;
             total_response_time += result.response_time_ms;
 
+            // Store response time for percentile calculation
+            {
+                std::lock_guard<std::mutex> lock(response_times_mutex);
+                response_times.push_back(result.response_time_ms);
+            }
+
             // Update min/max
-            int64_t current = result.response_time_ms;
-            int64_t old_min = min_response_time.load();
+            long long current = result.response_time_ms;
+            long long old_min = min_response_time.load();
             while (current < old_min && !min_response_time.compare_exchange_weak(old_min, current)) {}
 
-            int64_t old_max = max_response_time.load();
+            long long old_max = max_response_time.load();
             while (current > old_max && !max_response_time.compare_exchange_weak(old_max, current)) {}
         } else {
             failed_attempts++;
+            if (result.timeout) {
+                timeouts++;
+            } else {
+                other_failures++;
+            }
         }
 
         if (result.is_correct) {
@@ -72,6 +94,19 @@ struct LoadTestStats {
         } else {
             wrong_answers++;
         }
+    }
+
+    // Calculate percentile
+    long long get_percentile(int percentile) const {
+        if (response_times.empty()) return 0;
+
+        std::vector<long long> sorted_times = response_times;
+        std::sort(sorted_times.begin(), sorted_times.end());
+
+        size_t index = (sorted_times.size() * percentile) / 100;
+        if (index >= sorted_times.size()) index = sorted_times.size() - 1;
+
+        return sorted_times[index];
     }
 
     void print() const {
@@ -82,15 +117,20 @@ struct LoadTestStats {
         printf("║ Total Attempts:     %40d ║\n", total_attempts.load());
         printf("║ Successful:         %40d ║\n", successful_attempts.load());
         printf("║ Failed:             %40d ║\n", failed_attempts.load());
+        printf("║   - Timeouts:       %40d ║\n", timeouts.load());
+        printf("║   - Other Errors:   %40d ║\n", other_failures.load());
         printf("║ Correct Answers:    %40d ║\n", correct_answers.load());
         printf("║ Wrong Answers:      %40d ║\n", wrong_answers.load());
         printf("╠════════════════════════════════════════════════════════╣\n");
 
         if (successful_attempts.load() > 0) {
-            int64_t avg = total_response_time.load() / successful_attempts.load();
+            long long avg = total_response_time.load() / successful_attempts.load();
             printf("║ Avg Response Time: %39lld ms ║\n", avg);
             printf("║ Min Response Time: %39lld ms ║\n", min_response_time.load());
             printf("║ Max Response Time: %39lld ms ║\n", max_response_time.load());
+
+            long long p95 = get_percentile(95);
+            printf("║ 95th Percentile:   %39lld ms ║\n", p95);
         }
 
         printf("╚════════════════════════════════════════════════════════╝\n\n");
@@ -114,7 +154,11 @@ private:
     std::uniform_int_distribution<> dist;
 
 public:
-    LoadTester(const std::string& url, int users);
+    LoadTester(const std::string& url, int users)
+        : server_url(url), num_users(users), gen(rd()), dist(0, 2) {
+        curl_global_init(CURL_GLOBAL_ALL);
+    }
+
     ~LoadTester() = default;
 
     // Initialize test cases

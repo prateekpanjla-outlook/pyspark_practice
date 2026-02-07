@@ -13,19 +13,13 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* use
     return size * nmemb;
 }
 
-LoadTester::LoadTester(const std::string& url, int users)
-    : server_url(url), num_users(users), gen(rd()), dist(0, 2) {
-    curl_global_init(CURL_GLOBAL_ALL);
-}
-
 void LoadTester::init_test_cases() {
     // Test cases with wrong and correct SQL solutions
-    // Note: Table names are capitalized (Employee, Person, Logs) to match expected solutions
+    // Using questions with unique table names to avoid conflicts:
+    // - q2: Person table (unique)
+    // - q8: Logs table (unique)
+    // - q9: Orders table (unique)
     test_cases = {
-        TestCase("q1", "Second Highest Salary",
-            "SELECT MAX(salary) FROM Employee",  // Wrong - gets highest
-            "SELECT MAX(salary) AS SecondHighestSalary FROM Employee WHERE salary < (SELECT MAX(salary) FROM Employee)"),
-
         TestCase("q2", "Duplicate Emails",
             "SELECT email FROM Person",  // Wrong - returns all emails
             "SELECT email FROM Person GROUP BY email HAVING COUNT(*) > 1"),
@@ -34,11 +28,12 @@ void LoadTester::init_test_cases() {
             "SELECT DISTINCT num FROM Logs",  // Wrong - just distinct numbers
             "SELECT DISTINCT l1.num AS consecutive_numbers FROM Logs l1 "
             "JOIN Logs l2 ON l1.id = l2.id - 1 AND l1.num = l2.num "
-            "JOIN Logs l3 ON l1.id = l3.id - 2 AND l1.num = l3.num")
-    };
+            "JOIN Logs l3 ON l1.id = l3.id - 2 AND l1.num = l3.num"),
 
-    // For now, just test with 3 questions that we know work
-    // We can add more after verifying these work correctly
+        TestCase("q9", "Customers With Largest Revenue",
+            "SELECT customer_id FROM Orders",  // Wrong - returns all customers
+            "SELECT customer_id FROM Orders GROUP BY customer_id ORDER BY SUM(amount) DESC LIMIT 1")
+    };
 }
 
 bool LoadTester::create_sessions() {
@@ -135,10 +130,17 @@ void LoadTester::worker_thread(int user_id) {
     stats.record_attempt(result2);
 
     if (user_id < 5 || user_id % 100 == 0) {
+        // Helper lambda to format result
+        auto format_result = [](const TestResult& r) -> const char* {
+            if (r.timeout) return "⏱️";
+            if (r.is_correct) return "✅";
+            return "❌";
+        };
+
         printf("User %d [%s]: Attempt 1: %s (%lld ms), Attempt 2: %s (%lld ms)\n",
                user_id, test_case.question_title.c_str(),
-               result1.is_correct ? "✅" : "❌", result1.response_time_ms,
-               result2.is_correct ? "✅" : "❌", result2.response_time_ms);
+               format_result(result1), (long long)result1.response_time_ms,
+               format_result(result2), (long long)result2.response_time_ms);
     }
 }
 
@@ -173,6 +175,11 @@ TestResult LoadTester::execute_test(const std::string& session_token,
     } else {
         result.success = false;
         result.error_message = response;
+
+        // Check if this was a timeout
+        if (response.find("\"error\":\"timeout\"") != std::string::npos) {
+            result.timeout = true;
+        }
     }
 
     return result;
@@ -194,7 +201,7 @@ std::string LoadTester::http_post(const std::string& url, const std::string& jso
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 300L);  // 5 minutes timeout
 
     CURLcode res = curl_easy_perform(curl);
 
@@ -202,6 +209,10 @@ std::string LoadTester::http_post(const std::string& url, const std::string& jso
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK) {
+        // Mark timeout errors specially
+        if (res == CURLE_OPERATION_TIMEDOUT) {
+            return "{\"error\":\"timeout\",\"message\":\"" + std::string(curl_easy_strerror(res)) + "\"}";
+        }
         return "{\"error\":\"" + std::string(curl_easy_strerror(res)) + "\"}";
     }
 

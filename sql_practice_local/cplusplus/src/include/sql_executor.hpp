@@ -77,6 +77,12 @@ public:
     );
 
     /**
+     * @brief Initialize all question schemas once at startup
+     * Call this before accepting any connections
+     */
+    static bool initialize_all_schemas(class QuestionLoader* loader);
+
+    /**
      * @brief Execute SQL query
      */
     QueryResult execute(

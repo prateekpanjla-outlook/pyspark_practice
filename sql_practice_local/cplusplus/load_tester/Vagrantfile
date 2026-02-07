@@ -1,0 +1,46 @@
+# Vagrantfile for SQL Practice Load Testing Client
+# This sets up a Ubuntu VM for running load tests
+
+Vagrant.configure("2") do |config|
+  # Use Ubuntu 22.04 LTS (64-bit)
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_version = ">= 0"
+
+  # VM Configuration
+  config.vm.hostname = "sql-practice-load-tester"
+
+  # Resources - 4GB RAM as requested
+  config.vm.provider "virtualbox" do |vb|
+    vb.name = "sql-practice-load-tester"
+    vb.memory = "4096"  # 4 GB RAM
+    vb.cpus = 4         # 4 CPU cores
+    vb.gui = false      # Headless mode
+  end
+
+  # Network - Internal network for VM-to-VM communication
+  config.vm.network "private_network", type: "static", ip: "192.168.56.11"
+
+  # Disable shared folder (not needed for load tester)
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  # Provisioning: Install load testing tools
+  config.vm.provision "shell", inline: <<-SHELL
+    # Update package list
+    apt-get update
+
+    # Install essential tools
+    apt-get install -y curl wget jq bash coreutils
+
+    # Create load test directory
+    mkdir -p /home/vagrant/load_test
+    chown -R vagrant:vagrant /home/vagrant
+
+    # Print setup completion
+    echo "=========================================="
+    echo "Load tester environment ready!"
+    echo "=========================================="
+    echo "VM IP: 192.168.56.11"
+    echo "Target server: 192.168.56.10:9000"
+    echo "=========================================="
+  SHELL
+end

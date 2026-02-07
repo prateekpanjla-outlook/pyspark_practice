@@ -201,17 +201,13 @@ public:
                 );
             }
 
-            // Initialize schema if question_id is provided and different from current
-            SQLExecutor executor;
+            // Schema is already initialized at server startup
+            // Just track the current question_id for this session
             if (!question_id.empty() && session->current_question_id != question_id) {
-                auto question = question_loader->get_question_by_id(question_id);
-                if (question) {
-                    bool initialized = executor.initialize_schema(session->db_conn.get(), question->schema);
-                    if (initialized) {
-                        session->current_question_id = question_id;
-                    }
-                }
+                session->current_question_id = question_id;
             }
+
+            SQLExecutor executor;
 
             // Execute SQL
             auto result = executor.execute(session->db_conn.get(), user_sql);

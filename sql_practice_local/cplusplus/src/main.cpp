@@ -69,7 +69,7 @@ void print_banner() {
  */
 void print_config() {
     std::cout << "⚙️  Configuration:" << std::endl;
-    std::cout << "   - Session timeout: 2 minutes" << std::endl;
+    std::cout << "   - Session timeout: 10 minutes" << std::endl;
     std::cout << "   - Database engine: DuckDB (SQL:2003 compliant)" << std::endl;
     std::cout << "   - Embedded questions: " << question_loader->get_count() << std::endl;
     std::cout << "   - Max concurrent users: 10,000+" << std::endl;
@@ -107,8 +107,15 @@ int main(int argc, char** argv) {
         question_loader->load_embedded_questions();
         std::cout << "   ✅ Questions loaded: " << question_loader->get_count() << std::endl;
 
-        // 2. Create session manager (2-min timeout)
-        session_manager = std::make_shared<SessionManager>(120);  // 120 seconds
+        // 2. Initialize all database schemas (before accepting connections)
+        std::cout << "   📊 Initializing database schemas..." << std::endl;
+        if (!SQLExecutor::initialize_all_schemas(question_loader.get())) {
+            std::cerr << "❌ Fatal error: Failed to initialize database schemas" << std::endl;
+            return 1;
+        }
+
+        // 3. Create session manager (10-min timeout)
+        session_manager = std::make_shared<SessionManager>(600);  // 600 seconds (10 minutes)
         std::cout << "   ✅ Session manager initialized" << std::endl;
 
         // 3. Initialize handlers with dependencies
