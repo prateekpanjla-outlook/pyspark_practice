@@ -278,42 +278,60 @@ bool SQLExecutor::initialize_all_schemas(QuestionLoader* loader) {
         // Get the shared database instance
         auto& manager = DuckDBInstanceManager::get();
 
-        // Initialize the shared database if not already initialized
+        // Initialize multiple database instances if not already initialized
         if (!manager.is_initialized()) {
-            if (!manager.initialize(":memory:")) {
-                std::cerr << "Failed to initialize shared DuckDB instance" << std::endl;
+            if (!manager.initialize(":memory:", 8)) {
+                std::cerr << "Failed to initialize DuckDB instances" << std::endl;
                 return false;
             }
         }
-
-        // Create a connection for schema initialization
-        auto* shared_db = manager.get_shared_db();
-        if (!shared_db) {
-            std::cerr << "Shared database instance is null" << std::endl;
-            return false;
-        }
-
-        DuckDBConnection conn(shared_db);
 
         // Get all questions from the question loader
         auto questions = loader->list_questions();
 
-        std::cout << "Initializing " << questions.size() << " question schemas..." << std::endl;
+        std::cout << "Initializing " << questions.size() << " question schemas across "
+                  << manager.get_instance_count() << " DuckDB instances..." << std::endl;
 
-        // Initialize schema for each question
-        for (const auto& question : questions) {
-            SQLExecutor executor;
-            bool initialized = executor.initialize_schema(&conn, question.schema);
+        // Initialize schemas for ALL instances
+        for (size_t inst_idx = 0; inst_idx < manager.get_instance_count(); ++inst_idx) {
+            auto* db_instance = [&]() -> duckdb::DuckDB* {
+                // Temporarily set index to get specific instance
+                auto& mgr = const_cast<DuckDBInstanceManager&>(manager);
+                for (size_t i = 0; i < inst_idx; ++i) {
+                    mgr.get_instance();  // Skip ahead
+                }
+                return mgr.get_instance();
+            }();
 
-            if (!initialized) {
-                std::cerr << "Failed to initialize schema for question: " << question.id << std::endl;
+            if (!db_instance) {
+                std::cerr << "Failed to get DuckDB instance " << inst_idx << std::endl;
                 return false;
             }
 
-            std::cout << "  ✓ Initialized schema for: " << question.title << " (" << question.id << ")" << std::endl;
+            DuckDBConnection conn(db_instance);
+
+            // Initialize schema for each question on this instance
+            for (const auto& question : questions) {
+                SQLExecutor executor;
+                bool initialized = executor.initialize_schema(&conn, question.schema);
+
+                if (!initialized) {
+                    std::cerr << "Failed to initialize schema for question: " << question.id
+                              << " on instance " << inst_idx << std::endl;
+                    return false;
+                }
+            }
+
+            if (inst_idx == 0) {
+                // Only print once for the first instance
+                for (const auto& question : questions) {
+                    std::cout << "  ✓ Initialized schema for: " << question.title
+                              << " (" << question.id << ")" << std::endl;
+                }
+            }
         }
 
-        std::cout << "All question schemas initialized successfully!" << std::endl;
+        std::cout << "All question schemas initialized successfully across all instances!" << std::endl;
         return true;
 
     } catch (const std::exception& e) {
