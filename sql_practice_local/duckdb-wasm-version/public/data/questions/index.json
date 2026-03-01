@@ -1,0 +1,238 @@
+[
+  {
+    "id": "q1",
+    "slug": "select-basics",
+    "title": "SELECT Basics",
+    "description": "Retrieve specific columns from a table",
+    "difficulty": "easy",
+    "category": "basics",
+    "order": 1,
+    "schema": {
+      "tables": [
+        {
+          "name": "employees",
+          "columns": [
+            {"name": "id", "type": "INTEGER"},
+            {"name": "name", "type": "VARCHAR"},
+            {"name": "department", "type": "VARCHAR"},
+            {"name": "salary", "type": "INTEGER"}
+          ]
+        }
+      ],
+      "sampleData": {
+        "employees": [
+          {"id": 1, "name": "Alice", "department": "Engineering", "salary": 90000},
+          {"id": 2, "name": "Bob", "department": "Sales", "salary": 75000},
+          {"id": 3, "name": "Charlie", "department": "Engineering", "salary": 95000},
+          {"id": 4, "name": "Diana", "department": "Marketing", "salary": 80000},
+          {"id": 5, "name": "Eve", "department": "Sales", "salary": 85000}
+        ]
+      }
+    },
+    "question": "Find the names and salaries of all employees in the Engineering department",
+    "startingCode": "SELECT name, salary FROM employees",
+    "hints": [
+      "Use the WHERE clause to filter by department",
+      "The department name should be in quotes: 'Engineering'",
+      "You only need the name and salary columns"
+    ],
+    "expectedOutput": {
+      "columns": ["name", "salary"],
+      "rows": [
+        {"name": "Alice", "salary": 90000},
+        {"name": "Charlie", "salary": 95000}
+      ]
+    }
+  },
+  {
+    "id": "q2",
+    "slug": "where-clause",
+    "title": "WHERE Clause with Conditions",
+    "description": "Filter rows using comparison operators",
+    "difficulty": "easy",
+    "category": "basics",
+    "order": 2,
+    "schema": {
+      "tables": [
+        {
+          "name": "products",
+          "columns": [
+            {"name": "id", "type": "INTEGER"},
+            {"name": "name", "type": "VARCHAR"},
+            {"name": "price", "type": "INTEGER"},
+            {"name": "category", "type": "VARCHAR"}
+          ]
+        }
+      ],
+      "sampleData": {
+        "products": [
+          {"id": 1, "name": "Laptop", "price": 1200, "category": "Electronics"},
+          {"id": 2, "name": "Mouse", "price": 25, "category": "Electronics"},
+          {"id": 3, "name": "Desk", "price": 300, "category": "Furniture"},
+          {"id": 4, "name": "Chair", "price": 150, "category": "Furniture"},
+          {"id": 5, "name": "Monitor", "price": 400, "category": "Electronics"}
+        ]
+      }
+    },
+    "question": "Find all products that cost more than $200",
+    "startingCode": "SELECT * FROM products",
+    "hints": [
+      "Use the WHERE clause with the > operator",
+      "The price column contains the cost"
+    ],
+    "expectedOutput": {
+      "columns": ["id", "name", "price", "category"],
+      "rows": [
+        {"id": 1, "name": "Laptop", "price": 1200, "category": "Electronics"},
+        {"id": 3, "name": "Desk", "price": 300, "category": "Furniture"},
+        {"id": 5, "name": "Monitor", "price": 400, "category": "Electronics"}
+      ]
+    }
+  },
+  {
+    "id": "q3",
+    "slug": "order-by",
+    "title": "ORDER BY - Sorting Results",
+    "description": "Sort query results in ascending or descending order",
+    "difficulty": "easy",
+    "category": "basics",
+    "order": 3,
+    "schema": {
+      "tables": [
+        {
+          "name": "students",
+          "columns": [
+            {"name": "id", "type": "INTEGER"},
+            {"name": "name", "type": "VARCHAR"},
+            {"name": "score", "type": "INTEGER"}
+          ]
+        }
+      ],
+      "sampleData": {
+        "students": [
+          {"id": 1, "name": "Alice", "score": 85},
+          {"id": 2, "name": "Bob", "score": 92},
+          {"id": 3, "name": "Charlie", "score": 78},
+          {"id": 4, "name": "Diana", "score": 95},
+          {"id": 5, "name": "Eve", "score": 88}
+        ]
+      }
+    },
+    "question": "List all students sorted by score in descending order (highest first)",
+    "startingCode": "SELECT name, score FROM students",
+    "hints": [
+      "Use ORDER BY with DESC for descending order",
+      "DESC means highest values first"
+    ],
+    "expectedOutput": {
+      "columns": ["name", "score"],
+      "rows": [
+        {"name": "Diana", "score": 95},
+        {"name": "Bob", "score": 92},
+        {"name": "Eve", "score": 88},
+        {"name": "Alice", "score": 85},
+        {"name": "Charlie", "score": 78}
+      ]
+    }
+  },
+  {
+    "id": "q4",
+    "slug": "joins-inner",
+    "title": "INNER JOIN - Combine Tables",
+    "description": "Combine data from two tables using INNER JOIN",
+    "difficulty": "medium",
+    "category": "joins",
+    "order": 4,
+    "schema": {
+      "tables": [
+        {
+          "name": "customers",
+          "columns": [
+            {"name": "id", "type": "INTEGER"},
+            {"name": "name", "type": "VARCHAR"},
+            {"name": "email", "type": "VARCHAR"}
+          ]
+        },
+        {
+          "name": "orders",
+          "columns": [
+            {"name": "id", "type": "INTEGER"},
+            {"name": "customer_id", "type": "INTEGER"},
+            {"name": "total", "type": "INTEGER"}
+          ]
+        }
+      ],
+      "sampleData": {
+        "customers": [
+          {"id": 1, "name": "Alice", "email": "alice@example.com"},
+          {"id": 2, "name": "Bob", "email": "bob@example.com"},
+          {"id": 3, "name": "Charlie", "email": "charlie@example.com"}
+        ],
+        "orders": [
+          {"id": 1, "customer_id": 1, "total": 150},
+          {"id": 2, "customer_id": 2, "total": 200},
+          {"id": 3, "customer_id": 1, "total": 75}
+        ]
+      }
+    },
+    "question": "List all orders with customer names (only customers who have placed orders)",
+    "startingCode": "SELECT orders.id, customers.name, orders.total FROM orders",
+    "hints": [
+      "Use INNER JOIN to combine customers and orders tables",
+      "Join on customers.id = orders.customer_id"
+    ],
+    "expectedOutput": {
+      "columns": ["id", "name", "total"],
+      "rows": [
+        {"id": 1, "name": "Alice", "total": 150},
+        {"id": 2, "name": "Bob", "total": 200},
+        {"id": 3, "name": "Alice", "total": 75}
+      ]
+    }
+  },
+  {
+    "id": "q5",
+    "slug": "group-by",
+    "title": "GROUP BY - Aggregate Data",
+    "description": "Group rows and calculate aggregate values",
+    "difficulty": "medium",
+    "category": "aggregation",
+    "order": 5,
+    "schema": {
+      "tables": [
+        {
+          "name": "sales",
+          "columns": [
+            {"name": "id", "type": "INTEGER"},
+            {"name": "product", "type": "VARCHAR"},
+            {"name": "amount", "type": "INTEGER"},
+            {"name": "date", "type": "VARCHAR"}
+          ]
+        }
+      ],
+      "sampleData": {
+        "sales": [
+          {"id": 1, "product": "Widget A", "amount": 100, "date": "2024-01-01"},
+          {"id": 2, "product": "Widget B", "amount": 150, "date": "2024-01-01"},
+          {"id": 3, "product": "Widget A", "amount": 200, "date": "2024-01-02"},
+          {"id": 4, "product": "Widget C", "amount": 75, "date": "2024-01-02"},
+          {"id": 5, "product": "Widget B", "amount": 125, "date": "2024-01-03"}
+        ]
+      }
+    },
+    "question": "Find the total sales amount for each product",
+    "startingCode": "SELECT product, amount FROM sales",
+    "hints": [
+      "Use GROUP BY to group by product",
+      "Use SUM() to calculate total amount"
+    ],
+    "expectedOutput": {
+      "columns": ["product", "total"],
+      "rows": [
+        {"product": "Widget A", "total": 300},
+        {"product": "Widget B", "total": 275},
+        {"product": "Widget C", "total": 75}
+      ]
+    }
+  }
+]
